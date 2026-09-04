@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/newsletter",
+      "schedule": "0 9 * * 1"
+    }
+  ],
+  "functions": {
+    "src/app/api/inbound/resend/route.ts": { "maxDuration": 120 },
+    "src/app/api/vault/upload/route.ts": { "maxDuration": 300 },
+    "src/app/api/vault/[id]/reingest/route.ts": { "maxDuration": 300 },
+    "src/app/api/cron/newsletter/route.ts": { "maxDuration": 300 },
+    "src/app/api/newsletter/compose/route.ts": { "maxDuration": 300 }
+  }
+}
