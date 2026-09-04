@@ -10,6 +10,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import pLimit from "p-limit";
 
 import { env, SUPPORTED_DIMENSIONS, type EmbeddingProvider } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 import { getRuntimeConfig } from "@/lib/config";
 import { resolveApiKey } from "@/lib/ai/registry";
 import { createLogger, errorMessage } from "@/lib/logger";
@@ -135,22 +136,22 @@ async function sdkModel(provider: EmbeddingProvider, model: string): Promise<Emb
     case "openai":
       return createOpenAI({
         apiKey,
-        ...(env.OPENAI_BASE_URL ? { baseURL: env.OPENAI_BASE_URL } : {}),
+        ...(appConfig.llm.openaiBaseUrl ? { baseURL: appConfig.llm.openaiBaseUrl } : {}),
       }).textEmbeddingModel(model);
     case "cohere":
       return createCohere({ apiKey }).textEmbeddingModel(model);
     case "ollama":
       return createOpenAICompatible({
         name: "ollama",
-        baseURL: env.OLLAMA_BASE_URL,
+        baseURL: appConfig.llm.ollamaBaseUrl,
       }).textEmbeddingModel(model);
     case "openai-compatible":
-      if (!env.OPENAI_COMPATIBLE_BASE_URL) {
+      if (!appConfig.llm.openaiCompatibleBaseUrl) {
         throw new Error("OPENAI_COMPATIBLE_BASE_URL must be set for openai-compatible embeddings.");
       }
       return createOpenAICompatible({
-        name: env.OPENAI_COMPATIBLE_NAME || "custom",
-        baseURL: env.OPENAI_COMPATIBLE_BASE_URL,
+        name: appConfig.llm.openaiCompatibleName,
+        baseURL: appConfig.llm.openaiCompatibleBaseUrl,
         ...(apiKey ? { apiKey } : {}),
       }).textEmbeddingModel(model);
     default:

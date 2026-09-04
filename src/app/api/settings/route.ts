@@ -18,7 +18,6 @@ const CATEGORY_BY_PREFIX: Record<string, string> = {
   chunking: "chunking",
   retrieval: "retrieval",
   grounding: "grounding",
-  newsletter: "newsletter",
   email: "email",
 };
 

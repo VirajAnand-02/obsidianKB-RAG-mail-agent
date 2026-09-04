@@ -2,6 +2,7 @@ import "dotenv/config";
 import { createInterface } from "node:readline/promises";
 import pg from "pg";
 import { env } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 import { normaliseDbUrl, redact, SSL_CONFIG } from "@/lib/db-url";
 import { errorMessage } from "@/lib/logger";
 
@@ -25,7 +26,6 @@ const CONTENT_TABLES = [
   "outbound_emails",
   "inbound_emails",
   "email_threads",
-  "newsletter_issues",
   "query_logs",
   "ingest_runs",
   // Chunks and embeddings cascade from notes/vaults, but truncating explicitly
@@ -44,7 +44,6 @@ const CONTENT_TABLES = [
 const SCHEMA_OBJECTS = {
   tables: [
     ...CONTENT_TABLES,
-    "newsletter_subscribers",
     "embedding_spaces",
     "provider_credentials",
     "app_settings",
@@ -55,7 +54,6 @@ const SCHEMA_OBJECTS = {
   functions: [
     "hybrid_search",
     "chunk_neighbors",
-    "recent_notes",
     "embedding_table_for",
     "active_embedding_space",
     "activate_embedding_space",
@@ -63,7 +61,6 @@ const SCHEMA_OBJECTS = {
     "replies_sent_today",
     "eval_run_summary",
     "upsert_setting",
-    "unsubscribe_by_token",
     "is_admin",
     "set_updated_at",
   ],
@@ -71,7 +68,7 @@ const SCHEMA_OBJECTS = {
 
 async function confirm(mode: string): Promise<boolean> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const target = env.NEXT_PUBLIC_SUPABASE_URL || redact(env.SUPABASE_DB_URL) || "unknown";
+  const target = appConfig.supabase.url || redact(env.SUPABASE_DB_URL) || "unknown";
 
   console.log(`\n  This will ${mode} on:\n    ${target}\n`);
   const answer = await rl.question('  Type "reset" to continue: ');

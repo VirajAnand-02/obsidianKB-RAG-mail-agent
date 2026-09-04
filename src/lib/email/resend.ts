@@ -1,5 +1,4 @@
 import { Resend } from "resend";
-import { env } from "@/lib/env";
 import { getRuntimeConfig } from "@/lib/config";
 import { resolveApiKey } from "@/lib/ai/registry";
 import { renderEmail } from "@/lib/email/render";
@@ -37,7 +36,6 @@ export interface SendOptions {
   /** RFC 5322 Message-ID being replied to, so clients thread the reply. */
   inReplyTo?: string;
   references?: string[];
-  unsubscribeUrl?: string;
   showDisclosure?: boolean;
   tags?: { name: string; value: string }[];
   /** Overrides the configured dry-run setting for this one send. */
@@ -68,7 +66,6 @@ export async function sendEmail(options: SendOptions): Promise<SendResult> {
   const { html, text } = renderEmail({
     bodyMarkdown: options.bodyMarkdown,
     sources: options.sources,
-    unsubscribeUrl: options.unsubscribeUrl,
     showDisclosure: options.showDisclosure,
   });
 
@@ -96,10 +93,6 @@ export async function sendEmail(options: SendOptions): Promise<SendResult> {
     // Threading needs References to include the whole chain, not just the parent.
     headers["References"] = (options.references ?? [options.inReplyTo]).join(" ");
   }
-  if (options.unsubscribeUrl) {
-    headers["List-Unsubscribe"] = `<${options.unsubscribeUrl}>`;
-    headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
-  }
 
   const resend = await getClient();
   const { data, error } = await resend.emails.send({
@@ -120,52 +113,4 @@ export async function sendEmail(options: SendOptions): Promise<SendResult> {
 
   log.info("Email sent", { id: data?.id, to, subject: options.subject });
   return { id: data?.id ?? null, dryRun: false, to, subject: options.subject, html, text };
-}
-
-/**
- * Newsletter fan-out.
- *
- * Sent one message per subscriber rather than one with many recipients, so that
- * each carries its own unsubscribe link and no subscriber sees another's
- * address. Batched to stay within Resend's rate limits.
- */
-export async function sendBulk(
-  recipients: { email: string; unsubscribeUrl?: string }[],
-  options: Omit<SendOptions, "to" | "unsubscribeUrl">,
-  batchSize = 50,
-): Promise<{ sent: number; failed: number; errors: string[] }> {
-  const result = { sent: 0, failed: 0, errors: [] as string[] };
-
-  for (let i = 0; i < recipients.length; i += batchSize) {
-    const batch = recipients.slice(i, i + batchSize);
-
-    await Promise.all(
-      batch.map(async (recipient) => {
-        try {
-          await sendEmail({
-            ...options,
-            to: recipient.email,
-            unsubscribeUrl: recipient.unsubscribeUrl,
-          });
-          result.sent++;
-        } catch (e) {
-          // One bad address must not stop the rest of the issue going out.
-          result.failed++;
-          result.errors.push(`${recipient.email}: ${errorMessage(e)}`);
-        }
-      }),
-    );
-
-    // Gentle pacing between batches; Resend rate-limits per second.
-    if (i + batchSize < recipients.length) {
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-  }
-
-  return result;
-}
-
-export function unsubscribeUrl(token: string): string {
-  const base = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
-  return `${base}/unsubscribe?token=${encodeURIComponent(token)}`;
 }

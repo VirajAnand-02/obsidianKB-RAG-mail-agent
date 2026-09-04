@@ -3,6 +3,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { env } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 import { ingestFiles } from "@/lib/vault/ingest";
 import { isExcluded } from "@/lib/vault/zip";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -29,7 +30,7 @@ async function collectMarkdown(root: string): Promise<{ path: string; content: s
       const absolute = path.join(dir, entry.name);
       const relative = path.relative(root, absolute).replace(/\\/g, "/");
 
-      if (isExcluded(relative, env.INGEST_EXCLUDE_GLOBS)) continue;
+      if (isExcluded(relative, [...appConfig.ingestion.excludeGlobs])) continue;
       // Obsidian's own config and trash directories are never notes.
       if (entry.isDirectory()) {
         if (entry.name.startsWith(".")) continue;

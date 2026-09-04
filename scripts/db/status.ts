@@ -1,6 +1,7 @@
 import "dotenv/config";
 import pg from "pg";
 import { env, checkReadiness } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 import { getRuntimeConfig } from "@/lib/config";
 import { normaliseDbUrl, DbUrlError, SSL_CONFIG } from "@/lib/db-url";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -87,10 +88,10 @@ async function main() {
     // in force, and flag the ones being overridden.
     const config = await getRuntimeConfig();
     const overrides: Record<string, string> = {
-      "llm.provider": env.LLM_PROVIDER,
-      "llm.model": env.LLM_MODEL,
-      "embedding.provider": env.EMBEDDING_PROVIDER,
-      "embedding.model": env.EMBEDDING_MODEL,
+      "llm.provider": appConfig.llm.provider,
+      "llm.model": appConfig.llm.model,
+      "embedding.provider": appConfig.embedding.provider,
+      "embedding.model": appConfig.embedding.model,
     };
     const effective: Record<string, string> = {
       "llm.provider": config.llm.provider,

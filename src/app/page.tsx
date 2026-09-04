@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { checkReadiness } from "@/lib/env";
 import { getAdmin } from "@/lib/auth";
 
@@ -12,28 +11,7 @@ export const dynamic = "force-dynamic";
  * needs is a list of what is still unconfigured, not a crash or a redirect loop
  * into a login it cannot serve yet.
  */
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ code?: string; token_hash?: string; type?: string }>;
-}) {
-  const params = await searchParams;
-
-  // A sign-in code should arrive at /auth/callback, but Supabase falls back to
-  // the project's Site URL when the requested redirect is not in its allow
-  // list — and the Site URL has no path, so the code lands here instead.
-  // Forwarding it means a misconfigured allow list degrades to a working login
-  // rather than a blank page holding a valid credential.
-  if (params.code) {
-    redirect(`/auth/callback?code=${encodeURIComponent(params.code)}`);
-  }
-  if (params.token_hash && params.type) {
-    redirect(
-      `/auth/callback?token_hash=${encodeURIComponent(params.token_hash)}` +
-        `&type=${encodeURIComponent(params.type)}`,
-    );
-  }
-
+export default async function HomePage() {
   const readiness = checkReadiness();
   const user = await getAdmin();
 
@@ -46,8 +24,8 @@ export default async function HomePage({
         </div>
         <h1 className="text-4xl font-semibold tracking-tight">Obsi-Relay</h1>
         <p className="mt-3 max-w-xl text-[var(--color-muted)]">
-          Indexes an Obsidian vault, answers questions that arrive by email, and sends a
-          scheduled digest — with a grounding check between every draft and the outbox.
+          Indexes an Obsidian vault and answers questions that arrive by email, with a
+          grounding check between every draft and the outbox.
         </p>
       </div>
 

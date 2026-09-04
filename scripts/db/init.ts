@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { migrate } from "./migrate";
 import { env } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getWorkspaceId } from "@/lib/workspace";
 import { ensureEmbeddingSpace } from "@/lib/rag/indexer";
@@ -16,7 +17,7 @@ import { errorMessage } from "@/lib/logger";
 
 async function ensureBucket() {
   const db = supabaseAdmin();
-  const bucket = env.SUPABASE_STORAGE_BUCKET;
+  const bucket = appConfig.supabase.storageBucket;
 
   const { data: buckets, error } = await db.storage.listBuckets();
   if (error) throw new Error(`Could not list storage buckets: ${error.message}`);
@@ -30,11 +31,11 @@ async function ensureBucket() {
   // publicly readable.
   const { error: createError } = await db.storage.createBucket(bucket, {
     public: false,
-    fileSizeLimit: `${env.MAX_VAULT_UPLOAD_MB}MB`,
+    fileSizeLimit: `${appConfig.ingestion.maxVaultUploadMb}MB`,
   });
 
   if (!createError) {
-    console.log(`  created storage bucket "${bucket}" (${env.MAX_VAULT_UPLOAD_MB}MB limit)`);
+    console.log(`  created storage bucket "${bucket}" (${appConfig.ingestion.maxVaultUploadMb}MB limit)`);
     return;
   }
 
@@ -50,7 +51,7 @@ async function ensureBucket() {
 
     console.log(`  created storage bucket "${bucket}" using the project default size limit`);
     console.warn(
-      `  ! MAX_VAULT_UPLOAD_MB is ${env.MAX_VAULT_UPLOAD_MB}, above your project's per-file\n` +
+      `  ! appConfig.ingestion.maxVaultUploadMb is ${appConfig.ingestion.maxVaultUploadMb}, above your project's per-file\n` +
         "    ceiling. Larger vaults will be rejected by Storage. Either lower\n" +
         "    MAX_VAULT_UPLOAD_MB, raise the limit in Supabase -> Storage -> Settings,\n" +
         "    or ingest locally with `npm run vault:ingest -- <path>`, which does not\n" +
@@ -65,15 +66,16 @@ async function ensureBucket() {
 async function seedSettings() {
   const db = supabaseAdmin();
 
-  // admin_emails is mirrored into the database because the RLS `is_admin()`
-  // function reads it from there, not from the environment.
+  // Dashboard sign-in reads ADMIN_EMAIL directly from the environment; this row
+  // exists only for the SQL `is_admin()` function behind the RLS policies, which
+  // gate direct database access rather than the app.
   const defaults: { key: string; value: unknown; category: string }[] = [
-    { key: "admin_emails", value: env.ADMIN_EMAILS, category: "auth" },
-    { key: "llm.provider", value: env.LLM_PROVIDER, category: "llm" },
-    { key: "llm.model", value: env.LLM_MODEL, category: "llm" },
-    { key: "embedding.provider", value: env.EMBEDDING_PROVIDER, category: "embedding" },
-    { key: "embedding.model", value: env.EMBEDDING_MODEL, category: "embedding" },
-    { key: "embedding.dimensions", value: env.EMBEDDING_DIMENSIONS, category: "embedding" },
+    { key: "admin_emails", value: env.ADMIN_EMAIL ? [env.ADMIN_EMAIL] : [], category: "auth" },
+    { key: "llm.provider", value: appConfig.llm.provider, category: "llm" },
+    { key: "llm.model", value: appConfig.llm.model, category: "llm" },
+    { key: "embedding.provider", value: appConfig.embedding.provider, category: "embedding" },
+    { key: "embedding.model", value: appConfig.embedding.model, category: "embedding" },
+    { key: "embedding.dimensions", value: appConfig.embedding.dimensions, category: "embedding" },
   ];
 
   for (const setting of defaults) {
@@ -112,10 +114,10 @@ async function main() {
   const space = await ensureEmbeddingSpace();
   console.log(`  active: ${space.provider}/${space.model} (${space.dimensions}d)\n`);
 
-  if (env.ADMIN_EMAILS.length === 0) {
+  if (!env.ADMIN_EMAIL || !env.ADMIN_PASSWORD) {
     console.warn(
-      "  ! ADMIN_EMAILS is empty, so nobody can sign in to the dashboard.\n" +
-        "    Add your address to .env and re-run this command.\n",
+      "  ! ADMIN_EMAIL and/or ADMIN_PASSWORD are not set, so nobody can sign in to the\n" +
+        "    dashboard once it is deployed. Add them to .env and re-run this command.\n",
     );
   }
 

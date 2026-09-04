@@ -1,4 +1,5 @@
-import { env, type EmbeddingProvider, type LlmProvider } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
+import type { EmbeddingProvider, LlmProvider } from "@/lib/env";
 import { isDatabaseConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import { createLogger, errorMessage } from "@/lib/logger";
 import type { RuntimeConfig } from "@/lib/types";
@@ -78,76 +79,64 @@ export function getEnvConfig(): RuntimeConfig {
 
 function buildConfig(s: SettingsMap): RuntimeConfig {
   return {
-    llm: {
-      provider: pick(s, "llm.provider", env.LLM_PROVIDER) as LlmProvider,
-      model: pick(s, "llm.model", env.LLM_MODEL),
-      temperature: pickNum(s, "llm.temperature", env.LLM_TEMPERATURE),
-      maxOutputTokens: pickNum(s, "llm.maxOutputTokens", env.LLM_MAX_OUTPUT_TOKENS),
+      llm: {
+        provider: pick(s, "llm.provider", appConfig.llm.provider) as LlmProvider,
+        model: pick(s, "llm.model", appConfig.llm.model),
+        temperature: pickNum(s, "llm.temperature", appConfig.llm.temperature),
+        maxOutputTokens: pickNum(s, "llm.maxOutputTokens", appConfig.llm.maxOutputTokens),
     },
     embedding: {
-      provider: pick(s, "embedding.provider", env.EMBEDDING_PROVIDER) as EmbeddingProvider,
-      model: pick(s, "embedding.model", env.EMBEDDING_MODEL),
-      dimensions: pickNum(s, "embedding.dimensions", env.EMBEDDING_DIMENSIONS),
-      batchSize: pickNum(s, "embedding.batchSize", env.EMBEDDING_BATCH_SIZE),
-      concurrency: pickNum(s, "embedding.concurrency", env.EMBEDDING_CONCURRENCY),
-      docPrefix: pick(s, "embedding.docPrefix", env.EMBEDDING_DOC_PREFIX),
-      queryPrefix: pick(s, "embedding.queryPrefix", env.EMBEDDING_QUERY_PREFIX),
+        provider: pick(s, "embedding.provider", appConfig.embedding.provider) as EmbeddingProvider,
+        model: pick(s, "embedding.model", appConfig.embedding.model),
+        dimensions: pickNum(s, "embedding.dimensions", appConfig.embedding.dimensions),
+        batchSize: pickNum(s, "embedding.batchSize", appConfig.embedding.batchSize),
+        concurrency: pickNum(s, "embedding.concurrency", appConfig.embedding.concurrency),
+        docPrefix: pick(s, "embedding.docPrefix", appConfig.embedding.docPrefix),
+        queryPrefix: pick(s, "embedding.queryPrefix", appConfig.embedding.queryPrefix),
     },
     chunking: {
-      strategy: pick(s, "chunking.strategy", env.CHUNK_STRATEGY) as "markdown" | "recursive",
-      sizeTokens: pickNum(s, "chunking.sizeTokens", env.CHUNK_SIZE_TOKENS),
-      overlapTokens: pickNum(s, "chunking.overlapTokens", env.CHUNK_OVERLAP_TOKENS),
-      minTokens: pickNum(s, "chunking.minTokens", env.CHUNK_MIN_TOKENS),
-      maxTokens: pickNum(s, "chunking.maxTokens", env.CHUNK_MAX_TOKENS),
-      prependHeadings: pickBool(s, "chunking.prependHeadings", env.CHUNK_PREPEND_HEADINGS),
-      keepCodeBlocks: pickBool(s, "chunking.keepCodeBlocks", env.CHUNK_KEEP_CODE_BLOCKS),
+        strategy: pick(s, "chunking.strategy", appConfig.chunking.strategy) as "markdown" | "recursive",
+        sizeTokens: pickNum(s, "chunking.sizeTokens", appConfig.chunking.sizeTokens),
+        overlapTokens: pickNum(s, "chunking.overlapTokens", appConfig.chunking.overlapTokens),
+        minTokens: pickNum(s, "chunking.minTokens", appConfig.chunking.minTokens),
+        maxTokens: pickNum(s, "chunking.maxTokens", appConfig.chunking.maxTokens),
+        prependHeadings: pickBool(s, "chunking.prependHeadings", appConfig.chunking.prependHeadings),
+        keepCodeBlocks: pickBool(s, "chunking.keepCodeBlocks", appConfig.chunking.keepCodeBlocks),
     },
     retrieval: {
-      hybrid: pickBool(s, "retrieval.hybrid", env.RAG_HYBRID),
-      rrfK: pickNum(s, "retrieval.rrfK", env.RAG_RRF_K),
-      candidateK: pickNum(s, "retrieval.candidateK", env.RAG_CANDIDATE_K),
-      topK: pickNum(s, "retrieval.topK", env.RAG_TOP_K),
-      minScore: pickNum(s, "retrieval.minScore", env.RAG_MIN_SCORE),
-      neighborWindow: pickNum(s, "retrieval.neighborWindow", env.RAG_NEIGHBOR_WINDOW),
-      queryExpansion: pickBool(s, "retrieval.queryExpansion", env.RAG_QUERY_EXPANSION),
-      queryVariants: pickNum(s, "retrieval.queryVariants", env.RAG_QUERY_VARIANTS),
-      reranker: pick(s, "retrieval.reranker", env.RAG_RERANKER) as "none" | "cohere" | "jina",
-      rerankerModel: pick(s, "retrieval.rerankerModel", env.RAG_RERANKER_MODEL),
-      contextTokenBudget: pickNum(s, "retrieval.contextTokenBudget", env.RAG_CONTEXT_TOKEN_BUDGET),
-      efSearch: pickNum(s, "retrieval.efSearch", env.PGVECTOR_HNSW_EF_SEARCH),
+        hybrid: pickBool(s, "retrieval.hybrid", appConfig.retrieval.hybrid),
+        rrfK: pickNum(s, "retrieval.rrfK", appConfig.retrieval.rrfK),
+        candidateK: pickNum(s, "retrieval.candidateK", appConfig.retrieval.candidateK),
+        topK: pickNum(s, "retrieval.topK", appConfig.retrieval.topK),
+        minScore: pickNum(s, "retrieval.minScore", appConfig.retrieval.minScore),
+        neighborWindow: pickNum(s, "retrieval.neighborWindow", appConfig.retrieval.neighborWindow),
+        queryExpansion: pickBool(s, "retrieval.queryExpansion", appConfig.retrieval.queryExpansion),
+        queryVariants: pickNum(s, "retrieval.queryVariants", appConfig.retrieval.queryVariants),
+        reranker: pick(s, "retrieval.reranker", appConfig.retrieval.reranker) as "none" | "cohere" | "jina",
+        rerankerModel: pick(s, "retrieval.rerankerModel", appConfig.retrieval.rerankerModel),
+        contextTokenBudget: pickNum(s, "retrieval.contextTokenBudget", appConfig.retrieval.contextTokenBudget),
+        efSearch: pickNum(s, "retrieval.efSearch", appConfig.retrieval.hnswEfSearch),
     },
     grounding: {
-      enabled: pickBool(s, "grounding.enabled", env.GROUNDING_ENABLED),
+        enabled: pickBool(s, "grounding.enabled", appConfig.grounding.enabled),
       // Blank means "reuse the generation provider/model".
-      provider: pick(s, "grounding.provider", env.GROUNDING_PROVIDER),
-      model: pick(s, "grounding.model", env.GROUNDING_MODEL),
-      autosendThreshold: pickNum(s, "grounding.autosendThreshold", env.GROUNDING_AUTOSEND_THRESHOLD),
-      reviewThreshold: pickNum(s, "grounding.reviewThreshold", env.GROUNDING_REVIEW_THRESHOLD),
-      requireCitations: pickBool(s, "grounding.requireCitations", env.GROUNDING_REQUIRE_CITATIONS),
-      failMode: pick(s, "grounding.failMode", env.GROUNDING_FAIL_MODE) as
+        provider: pick(s, "grounding.provider", appConfig.grounding.provider),
+        model: pick(s, "grounding.model", appConfig.grounding.model),
+        autosendThreshold: pickNum(s, "grounding.autosendThreshold", appConfig.grounding.autosendThreshold),
+        reviewThreshold: pickNum(s, "grounding.reviewThreshold", appConfig.grounding.reviewThreshold),
+        requireCitations: pickBool(s, "grounding.requireCitations", appConfig.grounding.requireCitations),
+        failMode: pick(s, "grounding.failMode", appConfig.grounding.failMode) as
         | "review"
         | "block"
         | "send",
     },
-    newsletter: {
-      enabled: pickBool(s, "newsletter.enabled", env.NEWSLETTER_ENABLED),
-      cron: pick(s, "newsletter.cron", env.NEWSLETTER_CRON),
-      timezone: pick(s, "newsletter.timezone", env.NEWSLETTER_TIMEZONE),
-      lookbackDays: pickNum(s, "newsletter.lookbackDays", env.NEWSLETTER_LOOKBACK_DAYS),
-      maxItems: pickNum(s, "newsletter.maxItems", env.NEWSLETTER_MAX_ITEMS),
-      requireApproval: pickBool(s, "newsletter.requireApproval", env.NEWSLETTER_REQUIRE_APPROVAL),
-    },
     email: {
-      fromEmail: pick(s, "email.fromEmail", env.RESEND_FROM_EMAIL),
-      fromName: pick(s, "email.fromName", env.RESEND_FROM_NAME),
-      replyTo: pick(s, "email.replyTo", env.RESEND_REPLY_TO),
-      dryRun: pickBool(s, "email.dryRun", env.MAIL_DRY_RUN),
-      allowedSenderDomains: pick(s, "email.allowedSenderDomains", env.ALLOWED_SENDER_DOMAINS),
-      rateLimitPerSenderPerDay: pickNum(
-        s,
-        "email.rateLimitPerSenderPerDay",
-        env.RATE_LIMIT_REPLIES_PER_SENDER_PER_DAY,
-      ),
+      fromEmail: pick(s, "email.fromEmail", appConfig.email.fromEmail),
+      fromName: pick(s, "email.fromName", appConfig.email.fromName),
+      replyTo: pick(s, "email.replyTo", appConfig.email.replyTo),
+      dryRun: pickBool(s, "email.dryRun", appConfig.email.dryRun),
+      allowedSenderDomains: pick(s, "email.allowedSenderDomains", appConfig.email.allowedSenderDomains),
+      rateLimitPerSenderPerDay: pickNum(s, "email.rateLimitPerSenderPerDay", appConfig.email.rateLimitPerSenderPerDay),
     },
   };
 }

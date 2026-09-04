@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { createHmac } from "node:crypto";
 import { env } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 import { errorMessage } from "@/lib/logger";
 
 /**
@@ -40,7 +41,7 @@ async function main() {
     process.exit(2);
   }
 
-  const baseUrl = arg("url", env.NEXT_PUBLIC_APP_URL || "http://localhost:3000");
+  const baseUrl = arg("url", appConfig.app.url || "http://localhost:3000");
   const from = arg("from", "tester@example.com");
   const subject = arg("subject", "Quick question");
   const endpoint = `${baseUrl.replace(/\/$/, "")}/api/inbound/resend`;
@@ -54,7 +55,7 @@ async function main() {
       email_id: eventId,
       message_id: `<${eventId}@example.com>`,
       from,
-      to: [env.RESEND_REPLY_TO || `ask@${env.RESEND_INBOUND_DOMAIN || "example.com"}`],
+      to: [appConfig.email.replyTo || `ask@${appConfig.email.inboundDomain || "example.com"}`],
       subject,
       text: question,
       headers: { "Message-ID": `<${eventId}@example.com>` },

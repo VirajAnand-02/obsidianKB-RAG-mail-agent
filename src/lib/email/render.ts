@@ -1,5 +1,5 @@
 import { marked } from "marked";
-import { env } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 
 /**
  * Email HTML rendering.
@@ -57,7 +57,6 @@ export interface EmailTemplateOptions {
   bodyMarkdown: string;
   /** Note paths backing the answer, listed under the body. */
   sources?: { title: string; path: string }[];
-  unsubscribeUrl?: string;
   footerNote?: string;
   /** Renders the "generated from notes" line. Off for human-reviewed sends. */
   showDisclosure?: boolean;
@@ -71,7 +70,7 @@ export interface EmailTemplateOptions {
  * something they have to take on faith.
  */
 export function renderEmail(options: EmailTemplateOptions): { html: string; text: string } {
-  const appName = env.NEXT_PUBLIC_APP_NAME || "Obsi-Relay";
+  const appName = appConfig.app.name;
   const body = markdownToHtml(options.bodyMarkdown);
 
   const sourcesHtml =
@@ -93,10 +92,6 @@ export function renderEmail(options: EmailTemplateOptions): { html: string; text
       ? ""
       : `<p style="margin:0 0 6px;">Answered automatically from ${escapeHtml(appName)} notes.</p>`;
 
-  const unsubscribe = options.unsubscribeUrl
-    ? `<p style="margin:0;"><a href="${options.unsubscribeUrl}" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a></p>`
-    : "";
-
   const html = `<!DOCTYPE html>
 <html>
   <head>
@@ -114,7 +109,6 @@ export function renderEmail(options: EmailTemplateOptions): { html: string; text
       <div style="${STYLES.footer}">
         ${disclosure}
         ${options.footerNote ? `<p style="margin:0 0 6px;">${escapeHtml(options.footerNote)}</p>` : ""}
-        ${unsubscribe}
       </div>
     </div>
   </body>

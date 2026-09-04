@@ -1,4 +1,4 @@
-import { env } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 import { parseNote, isIngestible } from "@/lib/rag/markdown";
 import { indexNotes, type IndexStats } from "@/lib/rag/indexer";
 import { extractVaultZip, extractVaultFiles, type VaultFile } from "@/lib/vault/zip";
@@ -30,8 +30,8 @@ export function parseVaultFiles(files: VaultFile[]): {
   unusable: number;
 } {
   const options = {
-    respectPrivacyFrontmatter: env.INGEST_RESPECT_PRIVACY_FRONTMATTER,
-    privateTags: env.INGEST_PRIVATE_TAGS,
+    respectPrivacyFrontmatter: appConfig.ingestion.respectPrivacyFrontmatter,
+    privateTags: [...appConfig.ingestion.privateTags],
   };
 
   const notes: ParsedNote[] = [];
@@ -175,7 +175,7 @@ export async function reingestFromStorage(options: IngestOptions): Promise<Inges
   }
 
   const { data: blob, error: downloadError } = await db.storage
-    .from(env.SUPABASE_STORAGE_BUCKET)
+    .from(appConfig.supabase.storageBucket)
     .download(vault.archive_path as string);
 
   if (downloadError) throw new Error(`Could not download archive: ${downloadError.message}`);

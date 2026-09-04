@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { env } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 import type { RunSummary } from "@/evaluator/runner";
 
 /**
@@ -112,7 +113,7 @@ export function printReport(summary: RunSummary): void {
     ? `${GREEN}${BOLD}PASS${RESET}`
     : `${RED}${BOLD}FAIL${RESET}`;
   console.log(`\n${DIM}${"─".repeat(64)}${RESET}`);
-  console.log(`  ${verdict}  overall ${summary.overall.toFixed(3)} vs threshold ${env.EVAL_PASS_THRESHOLD}\n`);
+  console.log(`  ${verdict}  overall ${summary.overall.toFixed(3)} vs threshold ${appConfig.evaluator.passThreshold}\n`);
 }
 
 export function toMarkdown(summary: RunSummary): string {
@@ -139,7 +140,7 @@ export function toMarkdown(summary: RunSummary): string {
 
 **${summary.name}**
 
-- Result: **${summary.passed ? "PASS" : "FAIL"}** (${summary.overall.toFixed(3)} vs ${env.EVAL_PASS_THRESHOLD})
+- Result: **${summary.passed ? "PASS" : "FAIL"}** (${summary.overall.toFixed(3)} vs ${appConfig.evaluator.passThreshold})
 - Cases: ${summary.passedCases}/${summary.totalCases} passed
 - Duration: ${(summary.durationMs / 1000).toFixed(1)}s
 - Prompt: \`${summary.promptName}\` v${summary.promptVersion} (\`${summary.promptHash}\`)
@@ -168,7 +169,7 @@ ${failures ? `## Failing cases\n\n| Case | Score | Question |\n| --- | --- | ---
 /** Writes the JSON and markdown artefacts, returning their paths. */
 export async function writeReport(
   summary: RunSummary,
-  outputDir = env.EVAL_OUTPUT_DIR,
+  outputDir = appConfig.evaluator.outputDir,
 ): Promise<{ jsonPath: string; markdownPath: string }> {
   const dir = path.isAbsolute(outputDir) ? outputDir : path.join(process.cwd(), outputDir);
   await mkdir(dir, { recursive: true });

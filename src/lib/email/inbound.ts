@@ -40,7 +40,7 @@ export function verifyWebhookSignature(
   if (!secret) {
     // Verification cannot be skipped in production; in development the webhook
     // is usually driven by a local test script.
-    if (env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV === "production") {
       return { valid: false, reason: "RESEND_WEBHOOK_SECRET is not configured" };
     }
     log.warn("Webhook signature check skipped — RESEND_WEBHOOK_SECRET is not set");

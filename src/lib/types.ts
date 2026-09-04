@@ -237,14 +237,6 @@ export interface RuntimeConfig {
     requireCitations: boolean;
     failMode: "review" | "block" | "send";
   };
-  newsletter: {
-    enabled: boolean;
-    cron: string;
-    timezone: string;
-    lookbackDays: number;
-    maxItems: number;
-    requireApproval: boolean;
-  };
   email: {
     fromEmail: string;
     fromName: string;

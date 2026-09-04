@@ -3,6 +3,7 @@ import path from "node:path";
 import pLimit from "p-limit";
 
 import { env } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 import { getRuntimeConfig } from "@/lib/config";
 import { answerQuestion } from "@/lib/agents/answer";
 import { retrieve } from "@/lib/rag/retrieve";
@@ -223,7 +224,7 @@ async function runCase(
     };
 
     const overall = compositeScore(scores);
-    const threshold = options.passThreshold ?? env.EVAL_PASS_THRESHOLD;
+    const threshold = options.passThreshold ?? appConfig.evaluator.passThreshold;
 
     return {
       caseId: evalCase.id,
@@ -268,7 +269,7 @@ export async function runEvaluation(options: RunOptions = {}): Promise<RunSummar
   const startedAt = Date.now();
   const config = await getRuntimeConfig();
 
-  const datasetPath = options.dataset ?? env.EVAL_DATASET;
+  const datasetPath = options.dataset ?? appConfig.evaluator.dataset;
   const allCases = await loadDataset(datasetPath);
 
   const cases = options.tags?.length
@@ -288,8 +289,8 @@ export async function runEvaluation(options: RunOptions = {}): Promise<RunSummar
   const promptName = options.promptName ?? "senderAgent";
   const prompt = await loadPrompt(promptName);
 
-  const repeats = Math.max(1, options.repeats ?? env.EVAL_REPEATS);
-  const concurrency = Math.max(1, options.concurrency ?? env.EVAL_CONCURRENCY);
+  const repeats = Math.max(1, options.repeats ?? appConfig.evaluator.repeats);
+  const concurrency = Math.max(1, options.concurrency ?? appConfig.evaluator.concurrency);
   const name = options.name ?? `${promptName} v${prompt.version} @ ${new Date().toISOString()}`;
 
   // The full configuration is snapshotted so a score can be traced back to the
@@ -367,7 +368,7 @@ export async function runEvaluation(options: RunOptions = {}): Promise<RunSummar
 
   const overall = mean(results.map((r) => r.overall)) ?? 0;
   const passedCases = results.filter((r) => r.passed).length;
-  const threshold = options.passThreshold ?? env.EVAL_PASS_THRESHOLD;
+  const threshold = options.passThreshold ?? appConfig.evaluator.passThreshold;
   const durationMs = Date.now() - startedAt;
 
   if (runId) {

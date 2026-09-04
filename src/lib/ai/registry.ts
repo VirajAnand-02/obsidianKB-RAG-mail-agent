@@ -15,6 +15,7 @@ import { createXai } from "@ai-sdk/xai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
 import { env, type LlmProvider } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 import { getRuntimeConfig } from "@/lib/config";
 import { decryptSecret } from "@/lib/crypto";
 import { isDatabaseConfigured, supabaseAdmin } from "@/lib/supabase/admin";
@@ -92,8 +93,8 @@ const ENV_KEY_BY_PROVIDER: Record<string, keyof typeof env> = {
   huggingface: "HUGGINGFACE_API_KEY",
   voyage: "VOYAGE_API_KEY",
   resend: "RESEND_API_KEY",
-  // Ollama runs locally and needs no key.
-  ollama: "OLLAMA_BASE_URL",
+  // Ollama runs locally and needs no key; its endpoint lives in appConfig.
+  ollama: "" as keyof typeof env,
 };
 
 /** Stored credential first, then environment. Empty string when unset. */
@@ -115,7 +116,7 @@ export async function availableProviders(): Promise<
   return (Object.keys(ENV_KEY_BY_PROVIDER) as string[])
     .filter((p): p is LlmProvider => p !== "resend" && p !== "jina" && p !== "huggingface" && p !== "voyage")
     .map((provider) => {
-      if (provider === "ollama") return { provider, configured: Boolean(env.OLLAMA_BASE_URL) };
+      if (provider === "ollama") return { provider, configured: Boolean(appConfig.llm.ollamaBaseUrl) };
       const envKey = ENV_KEY_BY_PROVIDER[provider];
       const fromEnv = envKey ? env[envKey] : "";
       return {
@@ -151,7 +152,7 @@ export async function getLanguageModel(
         if (!apiKey) missingKey(p);
         return createOpenAI({
           apiKey,
-          ...(env.OPENAI_BASE_URL ? { baseURL: env.OPENAI_BASE_URL } : {}),
+          ...(appConfig.llm.openaiBaseUrl ? { baseURL: appConfig.llm.openaiBaseUrl } : {}),
         })(m);
 
       case "anthropic":
@@ -188,31 +189,31 @@ export async function getLanguageModel(
 
       case "azure":
         if (!apiKey) missingKey(p);
-        if (!env.AZURE_RESOURCE_NAME) {
+        if (!appConfig.llm.azureResourceName) {
           throw new Error("AZURE_RESOURCE_NAME must be set to use the Azure provider.");
         }
         return createAzure({
           apiKey,
-          resourceName: env.AZURE_RESOURCE_NAME,
-          apiVersion: env.AZURE_API_VERSION,
+          resourceName: appConfig.llm.azureResourceName,
+          apiVersion: appConfig.llm.azureApiVersion,
         })(m);
 
       case "ollama":
         // Local inference: no key, OpenAI-compatible endpoint.
         return createOpenAICompatible({
           name: "ollama",
-          baseURL: env.OLLAMA_BASE_URL,
+          baseURL: appConfig.llm.ollamaBaseUrl,
         }).chatModel(m);
 
       case "openai-compatible":
-        if (!env.OPENAI_COMPATIBLE_BASE_URL) {
+        if (!appConfig.llm.openaiCompatibleBaseUrl) {
           throw new Error(
             "OPENAI_COMPATIBLE_BASE_URL must be set to use the openai-compatible provider.",
           );
         }
         return createOpenAICompatible({
-          name: env.OPENAI_COMPATIBLE_NAME || "custom",
-          baseURL: env.OPENAI_COMPATIBLE_BASE_URL,
+          name: appConfig.llm.openaiCompatibleName,
+          baseURL: appConfig.llm.openaiCompatibleBaseUrl,
           ...(apiKey ? { apiKey } : {}),
         }).chatModel(m);
 
@@ -241,7 +242,7 @@ export async function getGroundingModel() {
 export async function getJudgeModel() {
   const config = await getRuntimeConfig();
   return getLanguageModel(
-    env.EVAL_JUDGE_PROVIDER || config.llm.provider,
-    env.EVAL_JUDGE_MODEL || config.llm.model,
+    appConfig.evaluator.judgeProvider || config.llm.provider,
+    appConfig.evaluator.judgeModel || config.llm.model,
   );
 }

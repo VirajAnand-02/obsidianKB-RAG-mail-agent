@@ -5,14 +5,15 @@ import {
   FlaskConical,
   Inbox,
   LayoutDashboard,
-  Mail,
   MessageSquare,
   Settings,
 } from "lucide-react";
 
-import { getAdmin } from "@/lib/auth";
+import { getAdmin, isDevAuthBypassEnabled } from "@/lib/auth";
+import SignOutButton from "@/components/SignOutButton";
 import { isDatabaseConfigured } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
+import { getRuntimeConfig } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -21,14 +22,19 @@ const NAV = [
   { href: "/dashboard/vault", label: "Vault", icon: BookOpen },
   { href: "/dashboard/review", label: "Review queue", icon: Inbox },
   { href: "/dashboard/playground", label: "Playground", icon: MessageSquare },
-  { href: "/dashboard/newsletters", label: "Newsletters", icon: Mail },
   { href: "/dashboard/evals", label: "Evaluations", icon: FlaskConical },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  // Before Supabase exists there is no sign-in to redirect to, so say what is
-  // missing rather than bouncing the user into a login that cannot work.
+  const user = await getAdmin();
+  if (!user) redirect("/login?next=/dashboard");
+
+  const bypassed = isDevAuthBypassEnabled();
+  const runtimeConfig = await getRuntimeConfig();
+
+  // Checked after the session, so the setup notice (which names environment
+  // variables) is only visible to a signed-in admin.
   if (!isDatabaseConfigured()) {
     return (
       <main className="mx-auto max-w-2xl px-6 py-24">
@@ -36,7 +42,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <h1 className="text-lg font-semibold">Finish setup first</h1>
           <p className="mt-2 text-sm text-[var(--color-muted)]">
             Supabase is not configured yet. Set <code>NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-            <code>SUPABASE_SERVICE_ROLE_KEY</code> in <code>.env</code>, then run{" "}
+            <code>SUPABASE_SECRET_KEY</code> in <code>.env</code>, then run{" "}
             <code className="text-[var(--color-ink)]">npm run db:init</code>.
           </p>
           <Link href="/" className="btn-ghost mt-5">
@@ -47,8 +53,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     );
   }
 
-  const user = await getAdmin();
-  if (!user) redirect("/login?next=/dashboard");
 
   return (
     <div className="flex min-h-screen">
@@ -72,12 +76,23 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </nav>
 
         <div className="mt-6 border-t border-[var(--color-border)] pt-4">
-          {env.MAIL_DRY_RUN && (
+          {runtimeConfig.email.dryRun && (
             <div className="mb-3 rounded-lg border border-[#5c4a1a] bg-[#241f10] px-2.5 py-2 text-xs text-[var(--color-warn)]">
               Dry-run mode — email is rendered but never delivered.
             </div>
           )}
-          <p className="truncate px-2.5 text-xs text-[var(--color-muted)]">{user.email}</p>
+
+          {bypassed && (
+            <div className="mb-3 rounded-lg border border-[#5c2a2a] bg-[#2a1516] px-2.5 py-2 text-xs text-[var(--color-bad)]">
+              Sign-in bypassed (development). Set <code>DEV_AUTH_BYPASS=false</code> to test the
+              real login.
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-2 px-2.5">
+            <p className="truncate text-xs text-[var(--color-muted)]">{user.email}</p>
+            {!bypassed && <SignOutButton />}
+          </div>
         </div>
       </aside>
 

@@ -1,5 +1,5 @@
 import { unzip, type Unzipped } from "fflate";
-import { env } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("vault:zip");
@@ -127,7 +127,7 @@ export async function extractVaultZip(
   options: ExtractOptions = {},
 ): Promise<ExtractResult> {
   const bytes = archive instanceof Uint8Array ? archive : new Uint8Array(archive);
-  const maxBytes = options.maxBytes ?? env.MAX_VAULT_UPLOAD_MB * 1024 * 1024;
+  const maxBytes = options.maxBytes ?? appConfig.ingestion.maxVaultUploadMb * 1024 * 1024;
 
   if (bytes.byteLength > maxBytes) {
     throw new Error(
@@ -146,7 +146,7 @@ export async function extractVaultZip(
     );
   }
 
-  const excludeGlobs = options.excludeGlobs ?? env.INGEST_EXCLUDE_GLOBS;
+  const excludeGlobs = options.excludeGlobs ?? [...appConfig.ingestion.excludeGlobs];
   // Directory entries have empty contents and a trailing slash.
   const entryPaths = Object.keys(unzipped).filter((p) => !p.endsWith("/"));
   const prefix = stripCommonPrefix(entryPaths);
@@ -197,7 +197,7 @@ export async function extractVaultFiles(
   entries: { path: string; content: string; bytes?: number }[],
   options: ExtractOptions = {},
 ): Promise<ExtractResult> {
-  const excludeGlobs = options.excludeGlobs ?? env.INGEST_EXCLUDE_GLOBS;
+  const excludeGlobs = options.excludeGlobs ?? [...appConfig.ingestion.excludeGlobs];
   const prefix = stripCommonPrefix(entries.map((e) => e.path));
 
   const files: VaultFile[] = [];

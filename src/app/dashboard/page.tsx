@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 async function loadOverview() {
   const db = supabaseAdmin();
 
-  const [notes, chunks, vaults, pending, sent, subscribers, recentQueries] = await Promise.all([
+  const [notes, chunks, vaults, pending, sent, recentQueries] = await Promise.all([
     db.from("notes").select("id", { count: "exact", head: true }).is("deleted_at", null),
     db.from("chunks").select("id", { count: "exact", head: true }),
     db.from("vaults").select("*").order("created_at", { ascending: false }),
@@ -17,10 +17,6 @@ async function loadOverview() {
       .select("id", { count: "exact", head: true })
       .eq("status", "pending_review"),
     db.from("outbound_emails").select("id", { count: "exact", head: true }).eq("status", "sent"),
-    db
-      .from("newsletter_subscribers")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "active"),
     db
       .from("query_logs")
       .select("id, question, source, created_at, latency_ms")
@@ -34,7 +30,6 @@ async function loadOverview() {
     vaults: vaults.data ?? [],
     pendingReview: pending.count ?? 0,
     sent: sent.count ?? 0,
-    subscribers: subscribers.count ?? 0,
     recentQueries: recentQueries.data ?? [],
   };
 }

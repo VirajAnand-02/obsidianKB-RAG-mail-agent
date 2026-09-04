@@ -19,7 +19,7 @@ export interface AnswerRequest {
   vaultName?: string;
   /** Skip retrieval by supplying it (used by the evaluator to reuse one pass). */
   retrieval?: RetrievalResult;
-  source?: "email" | "playground" | "eval" | "api" | "newsletter";
+  source?: "email" | "playground" | "eval" | "api";
   workspaceId?: string;
   /** Prompt file to use. Lets the evaluator score variants side by side. */
   promptName?: string;

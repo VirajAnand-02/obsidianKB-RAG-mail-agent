@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { env } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 import { requireAdminApi } from "@/lib/auth";
 import { ingestZip, ingestFiles } from "@/lib/vault/ingest";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -52,11 +52,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const maxBytes = env.MAX_VAULT_UPLOAD_MB * 1024 * 1024;
+  const maxBytes = appConfig.ingestion.maxVaultUploadMb * 1024 * 1024;
   if (zip && zip.size > maxBytes) {
     return NextResponse.json(
       {
-        error: `Archive is ${(zip.size / 1024 / 1024).toFixed(1)} MB, over the ${env.MAX_VAULT_UPLOAD_MB} MB limit.`,
+        error: `Archive is ${(zip.size / 1024 / 1024).toFixed(1)} MB, over the ${appConfig.ingestion.maxVaultUploadMb} MB limit.`,
       },
       { status: 413 },
     );
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
       // the user can retry from the dashboard instead of re-uploading.
       const objectPath = `${workspaceId}/${vaultId}/${Date.now()}-${zip.name}`;
       const { error: uploadError } = await db.storage
-        .from(env.SUPABASE_STORAGE_BUCKET)
+        .from(appConfig.supabase.storageBucket)
         .upload(objectPath, buffer, {
           contentType: "application/zip",
           upsert: true,

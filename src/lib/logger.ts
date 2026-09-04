@@ -1,10 +1,10 @@
-import { env } from "@/lib/env";
+import { appConfig } from "@/lib/app-config";
 
 type Level = "debug" | "info" | "warn" | "error";
 const ORDER: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 
 function enabled(level: Level) {
-  const threshold = ORDER[(env.LOG_LEVEL as Level) in ORDER ? (env.LOG_LEVEL as Level) : "info"];
+  const threshold = ORDER[appConfig.logLevel in ORDER ? appConfig.logLevel : "info"];
   return ORDER[level] >= threshold;
 }
 
@@ -17,7 +17,7 @@ function emit(level: Level, scope: string, message: string, data?: Record<string
   const entry = { ts: new Date().toISOString(), level, scope, message, ...data };
   const sink = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
 
-  if (env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production") {
     sink(JSON.stringify(entry));
   } else {
     const extra = data && Object.keys(data).length ? ` ${JSON.stringify(data)}` : "";
