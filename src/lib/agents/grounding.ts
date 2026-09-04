@@ -40,9 +40,29 @@ const reportSchema = z.object({
   reasoning: z.string().default(""),
 });
 
-/** Citation ids the draft references, e.g. [C3]. */
+/**
+ * Matches a citation bracket, including the grouped form models naturally
+ * produce when one sentence draws on several excerpts: `[C1]`, `[C1, C2]`,
+ * `[C1,C2]`.
+ *
+ * Matching only `[C1]` was a real failure: a grouped citation was read as *no*
+ * citation, which tripped the "requires citations" cap and sent every
+ * multi-source answer to human review.
+ */
+export const CITATION_PATTERN = /\[\s*(C\d+(?:\s*,\s*C\d+)*)\s*\]/g;
+
+/** Citation ids the draft references, e.g. [C3] or [C1, C2]. */
 export function extractCitedIds(text: string): string[] {
-  return [...new Set([...text.matchAll(/\[(C\d+)\]/g)].map((m) => m[1]))];
+  const ids = new Set<string>();
+  for (const match of text.matchAll(CITATION_PATTERN)) {
+    for (const id of match[1].split(",")) ids.add(id.trim());
+  }
+  return [...ids];
+}
+
+/** True when the text carries at least one citation, in any accepted form. */
+export function containsCitation(text: string): boolean {
+  return new RegExp(CITATION_PATTERN.source).test(text);
 }
 
 /**

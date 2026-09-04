@@ -25,25 +25,27 @@ export interface MigrateOptions {
 }
 
 export async function migrate(options: MigrateOptions = {}): Promise<{ applied: string[]; skipped: string[] }> {
-  const connectionString = process.env.SUPABASE_DB_URL;
+  // Percent-encodes a password containing URI-structural characters, which
+  // Supabase-generated passwords routinely do. Passing the raw value through
+  // makes `pg` fail with an opaque "Invalid URL".
+  const { url: connectionString, host, wasEncoded } = normaliseDbUrl(process.env.SUPABASE_DB_URL);
 
-  if (!connectionString || connectionString.includes("[PROJECT-REF]")) {
-    throw new Error(
-      "SUPABASE_DB_URL is not set.\n" +
-        "  Supabase Dashboard -> Project Settings -> Database -> Connection string (URI),\n" +
-        "  then paste it into .env. It looks like:\n" +
-        "  postgresql://postgres:PASSWORD@db.PROJECT.supabase.co:5432/postgres",
-    );
+  if (wasEncoded) {
+    console.log("  note: escaped special characters in the database password\n");
   }
 
-  const client = new pg.Client({
-    connectionString,
-    // Supabase requires TLS but serves a certificate this client will not
-    // otherwise chain; connections are to Supabase's own host over TLS.
-    ssl: { rejectUnauthorized: false },
-  });
+  const client = new pg.Client({ connectionString, ssl: SSL_CONFIG });
 
-  await client.connect();
+  try {
+    await client.connect();
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    throw new Error(
+      `Could not connect to ${host}: ${message}\n` +
+        `  Connection string: ${redact(connectionString)}\n` +
+        "  Check the database password, and that the host matches your project.",
+    );
+  }
 
   try {
     await client.query(`

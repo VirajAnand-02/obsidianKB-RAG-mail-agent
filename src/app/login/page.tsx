@@ -2,7 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+
+/** Callback failures arrive as ?error=<reason>; explain each in plain terms. */
+const ERROR_MESSAGES: Record<string, string> = {
+  missing_code: "That sign-in link was incomplete. Request a new one below.",
+  invalid_code: "That sign-in link has expired or was already used. Request a new one.",
+  wrong_device:
+    "Sign-in links must be opened in the same browser that requested them. Request a new link and open it here.",
+  not_admin: "That address is not in the admin allowlist (ADMIN_EMAILS).",
+  server_error: "Something went wrong completing sign-in. Please try again.",
+};
 
 /**
  * Magic-link sign-in.
@@ -12,6 +24,16 @@ import { supabaseBrowser } from "@/lib/supabase/client";
  * the allowlist, so this page cannot be used to enumerate admins.
  */
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
+  const params = useSearchParams();
+  const callbackError = params.get("error");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -71,8 +93,12 @@ export default function LoginPage() {
               className="input"
             />
 
-            {status === "error" && (
-              <p className="mt-3 text-sm text-[var(--color-bad)]">{message}</p>
+            {(status === "error" || callbackError) && (
+              <p className="mt-3 text-sm text-[var(--color-bad)]">
+                {message ||
+                  ERROR_MESSAGES[callbackError ?? ""] ||
+                  "Sign-in failed. Please try again."}
+              </p>
             )}
 
             <button

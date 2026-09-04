@@ -1,4 +1,4 @@
-import { extractCitedIds } from "@/lib/agents/grounding";
+import { containsCitation, extractCitedIds } from "@/lib/agents/grounding";
 import type { RetrievedChunk } from "@/lib/types";
 
 /**
@@ -45,7 +45,8 @@ export function citationDensity(answer: string): number {
     .filter((s) => s.length > 20);
 
   if (sentences.length === 0) return 0;
-  const cited = sentences.filter((s) => /\[C\d+\]/.test(s));
+  // Must accept grouped citations like [C1, C2], not just [C1].
+  const cited = sentences.filter((s) => containsCitation(s));
   return cited.length / sentences.length;
 }
 

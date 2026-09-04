@@ -104,7 +104,7 @@ const schema = z.object({
 
   // ---- generation ----
   LLM_PROVIDER: str("mistral"),
-  LLM_MODEL: str("mistral-large-latest"),
+  LLM_MODEL: str("ministral-14b-latest"),
   LLM_TEMPERATURE: num(0.2),
   LLM_MAX_OUTPUT_TOKENS: num(2000),
   LLM_REQUEST_TIMEOUT_MS: num(60_000),

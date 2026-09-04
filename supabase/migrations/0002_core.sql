@@ -120,12 +120,32 @@ create index if not exists chunks_note_idx  on chunks (note_id, ordinal);
 create index if not exists chunks_vault_idx on chunks (vault_id);
 create index if not exists chunks_hash_idx  on chunks (content_hash);
 
+-- Postgres marks `array_to_string` STABLE rather than IMMUTABLE, because for an
+-- arbitrary element type it depends on that type's output function. For `text[]`
+-- the result is genuinely deterministic, but a generated column will not accept
+-- a STABLE expression, so the join is wrapped in an immutable function of a
+-- concrete type.
+create or replace function heading_path_to_text(p_path text[])
+returns text
+language sql
+immutable
+parallel safe
+strict
+as $$
+  select array_to_string(p_path, ' ');
+$$;
+
+comment on function heading_path_to_text is
+  'Immutable text[] join, so the chunks.tsv generated column can index heading breadcrumbs.';
+
 -- Full-text side of hybrid retrieval. Heading breadcrumb is weighted above the
 -- body so a heading match outranks an incidental body mention.
 alter table chunks
   add column if not exists tsv tsvector
   generated always as (
-    setweight(to_tsvector('english', coalesce(array_to_string(heading_path, ' '), '')), 'A') ||
+    setweight(
+      to_tsvector('english', coalesce(heading_path_to_text(heading_path), '')), 'A'
+    ) ||
     setweight(to_tsvector('english', coalesce(content, '')), 'B')
   ) stored;
 

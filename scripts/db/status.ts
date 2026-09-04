@@ -1,6 +1,7 @@
 import "dotenv/config";
 import pg from "pg";
 import { env, checkReadiness } from "@/lib/env";
+import { getRuntimeConfig } from "@/lib/config";
 import { normaliseDbUrl, DbUrlError, SSL_CONFIG } from "@/lib/db-url";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { errorMessage } from "@/lib/logger";
@@ -79,6 +80,41 @@ async function main() {
         ? `  ${active.provider}/${active.model} (${active.dimensions}d)`
         : "  none active — run `npm run db:init`",
     );
+    console.log();
+
+    // Settings stored in the database win over .env, which is easy to forget
+    // after changing a value in .env and seeing no effect. Show what is actually
+    // in force, and flag the ones being overridden.
+    const config = await getRuntimeConfig();
+    const overrides: Record<string, string> = {
+      "llm.provider": env.LLM_PROVIDER,
+      "llm.model": env.LLM_MODEL,
+      "embedding.provider": env.EMBEDDING_PROVIDER,
+      "embedding.model": env.EMBEDDING_MODEL,
+    };
+    const effective: Record<string, string> = {
+      "llm.provider": config.llm.provider,
+      "llm.model": config.llm.model,
+      "embedding.provider": config.embedding.provider,
+      "embedding.model": config.embedding.model,
+    };
+
+    console.log("Effective configuration  (app_settings overrides .env)");
+    let shadowed = false;
+    for (const [key, envValue] of Object.entries(overrides)) {
+      const value = effective[key];
+      const differs = value !== envValue;
+      if (differs) shadowed = true;
+      console.log(
+        `  ${key.padEnd(20)} ${value}${differs ? `   <- overriding .env (${envValue})` : ""}`,
+      );
+    }
+    if (shadowed) {
+      console.log(
+        "\n  A database setting is shadowing .env. Change it in the dashboard Settings\n" +
+          "  page, or re-run `npm run db:init` to re-seed these keys from .env.",
+      );
+    }
     console.log();
 
     if ((vaults.data ?? []).length > 0) {

@@ -133,7 +133,7 @@ export default function SettingsPage() {
             className="input"
             value={String(values["llm.model"] ?? "")}
             onChange={(e) => set("llm.model", e.target.value)}
-            placeholder="mistral-large-latest"
+            placeholder="ministral-14b-latest"
           />
         </Field>
 

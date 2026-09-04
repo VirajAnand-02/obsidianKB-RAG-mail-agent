@@ -33,8 +33,33 @@ async function ensureBucket() {
     fileSizeLimit: `${env.MAX_VAULT_UPLOAD_MB}MB`,
   });
 
-  if (createError) throw new Error(`Could not create bucket "${bucket}": ${createError.message}`);
-  console.log(`  created storage bucket "${bucket}"`);
+  if (!createError) {
+    console.log(`  created storage bucket "${bucket}" (${env.MAX_VAULT_UPLOAD_MB}MB limit)`);
+    return;
+  }
+
+  // Every Supabase project has a global per-file ceiling, and a bucket may not
+  // exceed it. Rather than failing setup over a number the user did not choose,
+  // fall back to the project default and say what happened.
+  if (/exceeded the maximum allowed size|maximum allowed size/i.test(createError.message)) {
+    const { error: retryError } = await db.storage.createBucket(bucket, { public: false });
+
+    if (retryError) {
+      throw new Error(`Could not create bucket "${bucket}": ${retryError.message}`);
+    }
+
+    console.log(`  created storage bucket "${bucket}" using the project default size limit`);
+    console.warn(
+      `  ! MAX_VAULT_UPLOAD_MB is ${env.MAX_VAULT_UPLOAD_MB}, above your project's per-file\n` +
+        "    ceiling. Larger vaults will be rejected by Storage. Either lower\n" +
+        "    MAX_VAULT_UPLOAD_MB, raise the limit in Supabase -> Storage -> Settings,\n" +
+        "    or ingest locally with `npm run vault:ingest -- <path>`, which does not\n" +
+        "    use Storage at all.",
+    );
+    return;
+  }
+
+  throw new Error(`Could not create bucket "${bucket}": ${createError.message}`);
 }
 
 async function seedSettings() {
