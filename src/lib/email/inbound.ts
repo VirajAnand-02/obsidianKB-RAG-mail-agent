@@ -96,13 +96,39 @@ interface ResendAddress {
   name?: string;
 }
 
-function readAddress(value: unknown): { email: string; name?: string } {
-  if (typeof value === "string") {
-    // "Name <a@b.com>" or a bare address.
-    const match = value.match(/^\s*(?:"?([^"<]*)"?\s*)?<?([^\s<>]+@[^\s<>]+)>?\s*$/);
-    if (match) return { email: match[2].toLowerCase(), name: match[1]?.trim() || undefined };
-    return { email: value.trim().toLowerCase() };
+/**
+ * Parses one address, in either `Name <a@b.com>` or bare `a@b.com` form.
+ *
+ * Handled as two explicit cases rather than one regex with an optional display
+ * name. A single pattern with a greedy optional name group silently truncates
+ * bare addresses — `iamtheviraj@gmail.com` parses as name `iamthevira` plus
+ * address `j@gmail.com`, because the engine backtracks only far enough for the
+ * address group to find an `@`. That is not a cosmetic failure: the reply is
+ * then addressed to a different, possibly real, person.
+ */
+function parseAddressString(value: string): { email: string; name?: string } {
+  const trimmed = value.trim();
+
+  // Angle-bracket form: everything before `<` is the display name.
+  const angled = trimmed.match(/^([\s\S]*)<([^<>]+)>\s*$/);
+  if (angled) {
+    const name = angled[1].trim().replace(/^"([\s\S]*)"$/, "$1").trim();
+    return { email: angled[2].trim().toLowerCase(), name: name || undefined };
   }
+
+  // Bare address: the whole value, with no display name to extract.
+  if (/^[^\s<>@,;]+@[^\s<>@,;]+$/.test(trimmed)) {
+    return { email: trimmed.toLowerCase() };
+  }
+
+  // Anything else: take the first token that looks like an address rather than
+  // guessing at the surrounding text.
+  const found = trimmed.match(/[^\s<>,;"]+@[^\s<>,;"]+/);
+  return found ? { email: found[0].toLowerCase() } : { email: "" };
+}
+
+function readAddress(value: unknown): { email: string; name?: string } {
+  if (typeof value === "string") return parseAddressString(value);
 
   if (Array.isArray(value) && value.length > 0) return readAddress(value[0]);
 
