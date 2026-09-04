@@ -217,6 +217,30 @@ npm run mail:inbound -- "What is the default retry count?"
 That posts a correctly Svix-signed synthetic `email.received` event at a running dev server, so
 signature verification, triage, retrieval, drafting and the gate all run for real.
 
+## Traces
+
+**Dashboard → Traces** lists every inbound message and what happened to it, filterable by
+outcome (sent / awaiting review / blocked / ignored / failed) and searchable by sender or
+subject.
+
+Opening one shows the whole journey in the order the pipeline ran it:
+
+1. **Received** — sender, Message-ID, raw body
+2. **Triage** — accepted, or the exact reason it was filtered out
+3. **Retrieval** — every chunk with its note path, similarity and RRF score, neighbours marked
+4. **Draft** — the model, latency, token counts, and the generated text
+5. **Grounding gate** — verdict, score, and the per-claim supported/partial/unsupported breakdown
+6. **Human review** — who approved or rejected it, when, and any edit
+7. **Delivery** — the Resend message id, or the error
+
+Nothing extra is recorded to build this; it reconstructs the trace from rows the pipeline
+already writes. Messages that were *ignored* are listed alongside answered ones on purpose —
+a silently dropped message is the case that is otherwise invisible, and a filter bug once hid
+four real emails that way.
+
+The raw webhook payload is one click away at the bottom of each trace, which is the fastest
+route to diagnosing a provider-side change.
+
 ## Evaluation
 
 Prompts live as markdown in `src/prompts/`, judges in `src/evaluator/prompts/` — editable and

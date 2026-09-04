@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  Activity,
   BookOpen,
   FlaskConical,
   Inbox,
@@ -20,6 +21,7 @@ export const dynamic = "force-dynamic";
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/vault", label: "Vault", icon: BookOpen },
+  { href: "/dashboard/traces", label: "Traces", icon: Activity },
   { href: "/dashboard/review", label: "Review queue", icon: Inbox },
   { href: "/dashboard/playground", label: "Playground", icon: MessageSquare },
   { href: "/dashboard/evals", label: "Evaluations", icon: FlaskConical },
