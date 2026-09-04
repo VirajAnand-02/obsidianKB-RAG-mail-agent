@@ -100,7 +100,7 @@ async function main() {
   const outcome = (json as { outcome?: { status?: string; reason?: string } }).outcome;
   if (outcome?.status) {
     const explain: Record<string, string> = {
-      sent: "A reply was generated and sent (or logged, if MAIL_DRY_RUN is on).",
+      sent: "A reply was generated and sent (or only logged, if email.dryRun is on).",
       queued: "The grounding gate held the draft for review — see /dashboard/review.",
       blocked: "The grounding gate refused to send; the sender got a not-found reply.",
       ignored: "Filtered before answering.",

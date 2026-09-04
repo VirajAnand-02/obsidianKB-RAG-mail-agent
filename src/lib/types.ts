@@ -170,6 +170,8 @@ export interface InboundMessage {
   subject: string;
   text?: string;
   html?: string;
+  /** Lowercased RFC 5322 headers, used to spot auto-replies and mailing lists. */
+  headers?: Record<string, string>;
   receivedAt: string;
   raw?: unknown;
 }

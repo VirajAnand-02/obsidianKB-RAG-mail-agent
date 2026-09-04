@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { checkReadiness } from "@/lib/env";
+import { getAdmin } from "@/lib/auth";
 import { getRuntimeConfig } from "@/lib/config";
 import { isDatabaseConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import { errorMessage } from "@/lib/logger";
@@ -8,11 +9,23 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Readiness probe. Reports which pieces of configuration are still missing so
- * setup problems surface here rather than as a failed email hours later.
+ * Readiness probe.
+ *
+ * Unauthenticated callers get a bare up/down, because the detail below names
+ * which environment variables are set and which provider and model are in use —
+ * that is a map of the deployment, and it should not be readable by anyone who
+ * finds the URL. Signed-in admins get the full report.
  */
 export async function GET() {
+  const admin = await getAdmin();
   const readiness = checkReadiness();
+
+  if (!admin) {
+    return NextResponse.json(
+      { ok: readiness.ok, status: readiness.ok ? "ready" : "incomplete" },
+      { status: readiness.ok ? 200 : 503 },
+    );
+  }
 
   let database: { ok: boolean; error?: string; vaults?: number; chunks?: number } = { ok: false };
 

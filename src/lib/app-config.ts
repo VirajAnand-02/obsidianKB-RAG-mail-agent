@@ -79,7 +79,9 @@ export const appConfig = {
     fromName: "Obsi-Relay",
     replyTo: "ask@obsi-relay.vrj02.dev",
     inboundDomain: "ask.obsi-relay.vrj02.dev",
-    dryRun: true,
+    // Live. Replies are delivered to real inboxes without a manual switch.
+    // `npm run mail:test -- <to>` still renders without sending unless --live.
+    dryRun: false,
     allowedSenderDomains: [] as string[],
     rateLimitPerSenderPerDay: 10,
   },

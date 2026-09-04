@@ -1,18 +1,17 @@
 import Link from "next/link";
-import { checkReadiness } from "@/lib/env";
 import { getAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Landing and setup page.
+ * Landing page.
  *
- * Deliberately works with an empty `.env`: the first thing a new deployment
- * needs is a list of what is still unconfigured, not a crash or a redirect loop
- * into a login it cannot serve yet.
+ * Deliberately says nothing about configuration state. Listing which
+ * environment variables are set tells an unauthenticated visitor how the
+ * deployment is wired and what is missing — useful to the operator, but the
+ * operator can read `npm run db:status` or /api/health instead.
  */
 export default async function HomePage() {
-  const readiness = checkReadiness();
   const user = await getAdmin();
 
   return (
@@ -29,59 +28,16 @@ export default async function HomePage() {
         </p>
       </div>
 
-      <div className="card">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-medium">Setup</h2>
-          <span
-            className={`badge ${
-              readiness.ok
-                ? "border-[#1f4d2a] bg-[#12261a] text-[var(--color-ok)]"
-                : "border-[#5c4a1a] bg-[#241f10] text-[var(--color-warn)]"
-            }`}
-          >
-            {readiness.ok ? "Ready" : `${readiness.checks.length} to configure`}
-          </span>
-        </div>
-
-        <ul className="space-y-2 text-sm">
-          {readiness.all.map((check) => (
-            <li key={check.key} className="flex items-start gap-3">
-              <span
-                className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
-                  check.ok ? "bg-[var(--color-ok)]" : "bg-[var(--color-bad)]"
-                }`}
-              />
-              <span className="flex-1">
-                <code className="text-[13px] text-[var(--color-ink)]">{check.key}</code>
-                <span className="ml-2 text-[var(--color-muted)]">— {check.feature}</span>
-              </span>
-              <span className="text-xs text-[var(--color-muted)]">
-                {check.ok ? "set" : "missing"}
-              </span>
-            </li>
-          ))}
-        </ul>
-
-        {!readiness.ok && (
-          <p className="mt-4 border-t border-[var(--color-border)] pt-4 text-xs text-[var(--color-muted)]">
-            Fill these in <code>.env</code> (see <code>.env.example</code>), then run{" "}
-            <code className="text-[var(--color-ink)]">npm run db:init</code>.
-          </p>
-        )}
-      </div>
-
-      <div className="mt-6 flex items-center gap-3">
-        <Link href="/dashboard" className="btn-primary">
-          Open dashboard
-        </Link>
-        {!user && (
-          <Link href="/login" className="btn-ghost">
+      <div className="flex items-center gap-3">
+        {user ? (
+          <Link href="/dashboard" className="btn-primary">
+            Open dashboard
+          </Link>
+        ) : (
+          <Link href="/login" className="btn-primary">
             Sign in
           </Link>
         )}
-        <a href="/api/health" className="btn-ghost">
-          Health check
-        </a>
       </div>
 
       {user && (

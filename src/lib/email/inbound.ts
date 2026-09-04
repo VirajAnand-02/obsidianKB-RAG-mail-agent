@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "@/lib/env";
+import { resolveApiKey } from "@/lib/ai/registry";
 import { createLogger } from "@/lib/logger";
 import type { InboundMessage } from "@/lib/types";
 
@@ -142,8 +143,92 @@ export function parseInboundPayload(body: unknown): InboundMessage | null {
     subject: (data.subject as string) ?? "",
     text: (data.text as string) ?? undefined,
     html: (data.html as string) ?? undefined,
+    headers: Object.keys(headers).length
+      ? Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), String(v)]))
+      : undefined,
     receivedAt: (data.created_at as string) ?? new Date().toISOString(),
     raw: body,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Content hydration
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches the body of an inbound message.
+ *
+ * Resend's `email.received` webhook carries metadata only — addresses, subject,
+ * `email_id`, attachment list — and no body at all. The message content has to
+ * be fetched separately, which is easy to miss: without this every inbound email
+ * looks like an empty body and gets filed as "nothing to answer".
+ */
+async function fetchInboundContent(emailId: string): Promise<{
+  text?: string;
+  html?: string;
+  headers?: Record<string, string>;
+  messageId?: string;
+} | null> {
+  const apiKey = await resolveApiKey("resend");
+  if (!apiKey) {
+    log.error("Cannot fetch inbound content: no Resend API key configured");
+    return null;
+  }
+
+  const res = await fetch(`https://api.resend.com/emails/inbound/${encodeURIComponent(emailId)}`, {
+    headers: { authorization: `Bearer ${apiKey}` },
+  });
+
+  if (!res.ok) {
+    log.error("Could not fetch inbound message content", {
+      emailId,
+      status: res.status,
+      body: (await res.text()).slice(0, 200),
+    });
+    return null;
+  }
+
+  const json = (await res.json()) as {
+    text?: string;
+    html?: string;
+    headers?: Record<string, string>;
+    message_id?: string;
+  };
+
+  // Header keys come back lowercased already, but normalise so lookups elsewhere
+  // do not depend on that.
+  const headers: Record<string, string> = {};
+  for (const [k, v] of Object.entries(json.headers ?? {})) {
+    headers[k.toLowerCase()] = String(v);
+  }
+
+  return { text: json.text, html: json.html, headers, messageId: json.message_id };
+}
+
+/**
+ * Fills in the body and headers when the webhook did not include them.
+ * A message that already carries content (a replayed test, another provider) is
+ * returned untouched.
+ */
+export async function hydrateInboundMessage(message: InboundMessage): Promise<InboundMessage> {
+  if (message.text?.trim() || message.html?.trim()) return message;
+  if (!message.providerEventId) {
+    log.warn("Inbound message has no body and no id to fetch one with");
+    return message;
+  }
+
+  const content = await fetchInboundContent(message.providerEventId);
+  if (!content) return message;
+
+  const headers = content.headers ?? {};
+
+  return {
+    ...message,
+    text: content.text,
+    html: content.html,
+    headers,
+    messageId: message.messageId ?? content.messageId,
+    inReplyTo: message.inReplyTo ?? headers["in-reply-to"],
   };
 }
 
@@ -223,8 +308,8 @@ export function extractBody(message: InboundMessage): string {
  * are best broken by a header check rather than a judgement call.
  */
 export function isAutomatedMessage(message: InboundMessage): { automated: boolean; reason?: string } {
-  const headers = ((message.raw as { data?: { headers?: Record<string, string> } })?.data
-    ?.headers ?? {}) as Record<string, string>;
+  // Headers arrive from the content fetch, not the webhook payload.
+  const headers = message.headers ?? {};
 
   const lower: Record<string, string> = {};
   for (const [k, v] of Object.entries(headers)) lower[k.toLowerCase()] = String(v);

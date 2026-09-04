@@ -54,10 +54,9 @@ export interface SendResult {
 /**
  * Sends one email.
  *
- * In dry-run mode (`MAIL_DRY_RUN=true`, the default) the message is rendered and
- * logged but never handed to Resend. That default is intentional: the failure
- * mode of this system is mailing real people, so sending has to be switched on
- * deliberately rather than being on from the first `npm run dev`.
+ * Sending is live by default (`email.dryRun: false` in src/lib/app-config.ts).
+ * Setting `dryRun: true` renders and logs the message without handing it to
+ * Resend, which is useful when working on templates or the pipeline.
  */
 export async function sendEmail(options: SendOptions): Promise<SendResult> {
   const config = await getRuntimeConfig();

@@ -11,8 +11,8 @@ import { errorMessage } from "@/lib/logger";
  *   npm run mail:test -- you@example.com --live
  *
  * Without `--live` this renders the message and prints it, honouring
- * MAIL_DRY_RUN. `--live` forces an actual send regardless of the setting, so
- * verifying domain setup does not require flipping the global safety switch.
+ * `email.dryRun` from src/lib/app-config.ts. `--live` forces an actual send
+ * regardless of that setting.
  */
 
 const BODY = `Hello,

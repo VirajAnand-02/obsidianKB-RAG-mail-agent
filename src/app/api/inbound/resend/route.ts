@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { handleInboundEmail } from "@/lib/agents/pipeline";
-import { parseInboundPayload, verifyWebhookSignature } from "@/lib/email/inbound";
+import {
+  hydrateInboundMessage,
+  parseInboundPayload,
+  verifyWebhookSignature,
+} from "@/lib/email/inbound";
 import { createLogger, errorMessage } from "@/lib/logger";
 
 const log = createLogger("api:inbound");
@@ -55,7 +59,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const outcome = await handleInboundEmail(message);
+    // The webhook carries metadata only; the body is a separate fetch.
+    const hydrated = await hydrateInboundMessage(message);
+    const outcome = await handleInboundEmail(hydrated);
     log.info("Inbound handled", { status: outcome.status, from: message.from.email });
     return NextResponse.json({ ok: true, outcome });
   } catch (e) {
