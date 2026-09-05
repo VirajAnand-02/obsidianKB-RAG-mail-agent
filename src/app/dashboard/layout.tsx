@@ -11,6 +11,8 @@ import {
 
 import { getAdmin, isDevAuthBypassEnabled } from "@/lib/auth";
 import SignOutButton from "@/components/SignOutButton";
+import ScrollToTop from "@/components/ScrollToTop";
+import NavLink from "@/components/NavLink";
 import { isDatabaseConfigured } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
 import { getRuntimeConfig } from "@/lib/config";
@@ -55,27 +57,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="hidden w-60 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-surface)] p-3 md:block">
+    // h-screen + overflow-hidden pins the shell to the viewport; only the inner
+    // panes scroll. Without this the whole page scrolls and the sidebar leaves
+    // with it.
+    <div className="flex h-screen overflow-hidden">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] p-3 md:flex">
         <Link href="/" className="mb-6 flex items-center gap-2 px-2">
           <span className="h-2 w-2 rounded-full bg-[var(--color-accent)]" />
           <span className="font-semibold">Obsi-Relay</span>
         </Link>
 
-        <nav className="space-y-0.5">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto">
           {NAV.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className="nav-item"
-            >
+            <NavLink key={href} href={href} label={label}>
               <Icon size={16} />
-              {label}
-            </Link>
+            </NavLink>
           ))}
         </nav>
 
-        <div className="mt-6 border-t border-[var(--color-border)] pt-4">
+        <div className="mt-3 shrink-0 border-t border-[var(--color-border)] pt-3">
           {runtimeConfig.email.dryRun && (
             <div className="callout callout-warn mb-3">
               Dry-run mode — email is rendered but never delivered.
@@ -96,8 +96,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </aside>
 
-      <div className="flex-1 overflow-x-hidden">
+      <div id="dashboard-scroll" className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="mx-auto max-w-6xl px-6 py-8">{children}</div>
+        <ScrollToTop containerId="dashboard-scroll" />
       </div>
     </div>
   );

@@ -13,3 +13,10 @@ next-env.d.ts
 /tmp
 /vaults
 /eval-results
+
+# Obsidian vaults kept beside the repo for local ingestion.
+# Notes are personal content and must never be committed — this repo is public,
+# and anything pushed stays readable at that commit even after deletion.
+IEEE_Proj/
+vaults/
+*.vault/

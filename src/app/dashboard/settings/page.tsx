@@ -17,6 +17,7 @@ interface SettingsResponse {
   credentials?: { provider: string; hint: string }[];
   embeddingModels?: EmbeddingModelInfo[];
   encryptionConfigured?: boolean;
+  encryptionReason?: string | null;
   error?: string;
 }
 
@@ -386,7 +387,8 @@ export default function SettingsPage() {
         note={
           data.encryptionConfigured
             ? "Stored encrypted with AES-256-GCM. Leave blank to keep using the environment variable."
-            : "SETTINGS_ENCRYPTION_KEY is not set, so keys cannot be stored here yet. Generate one with: openssl rand -base64 32"
+            : (data.encryptionReason ??
+              "Encryption is unavailable, so keys cannot be stored here yet.")
         }
       >
         {(data.providers ?? []).map((p) => {

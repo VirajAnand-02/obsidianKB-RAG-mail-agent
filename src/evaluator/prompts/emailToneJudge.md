@@ -35,6 +35,12 @@ Score `formatIssues` separately as a list of anything structurally wrong for an 
 - Contains raw template placeholders, unrendered markdown, or broken links.
 - Contains reasoning, meta-commentary, or references to "the context" / "the provided documents". The recipient does not know a retrieval system exists.
 
+## Refusals are a valid answer
+
+When the reply says the notes do not cover the question, judge it as a refusal, not as an evasion. Saying "I looked and found nothing on X" **is** the direct answer, and naming what was searched for is helpful rather than meta-commentary — the deduction above is about exposing the machinery ("the provided context", "chunk 3"), not about a person saying they checked.
+
+A short, plain, unapologetic refusal that names the topic should score **0.8 or above** and `sendable: true`. Only mark a refusal down for the usual faults: filler openers, grovelling, padding, or hedging so vague the reader cannot tell whether it was understood.
+
 Citations in `[C1]` form are expected and are **not** a format issue.
 
 ## Output

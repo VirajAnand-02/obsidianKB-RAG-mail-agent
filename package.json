@@ -24,7 +24,8 @@
     "eval": "tsx src/evaluator/cli.ts",
     "eval:fast": "tsx src/evaluator/cli.ts --fast",
     "mail:test": "tsx scripts/mail-test.ts",
-    "mail:inbound": "tsx scripts/mail-inbound.ts"
+    "mail:inbound": "tsx scripts/mail-inbound.ts",
+    "eval:scaffold": "tsx scripts/eval-scaffold.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

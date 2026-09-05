@@ -3,7 +3,7 @@ import { requireAdminApi } from "@/lib/auth";
 import { getRuntimeConfig, invalidateConfigCache } from "@/lib/config";
 import { availableProviders, invalidateCredentialCache } from "@/lib/ai/registry";
 import { KNOWN_EMBEDDING_MODELS } from "@/lib/ai/embeddings";
-import { encryptSecret, isEncryptionConfigured } from "@/lib/crypto";
+import { encryptSecret, encryptionStatus } from "@/lib/crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { SUPPORTED_DIMENSIONS } from "@/lib/env";
 import { errorMessage } from "@/lib/logger";
@@ -37,6 +37,8 @@ export async function GET() {
     .select("*")
     .order("created_at", { ascending: false });
 
+  const encryption = encryptionStatus();
+
   return NextResponse.json({
     ok: true,
     config,
@@ -45,7 +47,9 @@ export async function GET() {
     embeddingModels: KNOWN_EMBEDDING_MODELS,
     embeddingSpaces: spaces ?? [],
     supportedDimensions: SUPPORTED_DIMENSIONS,
-    encryptionConfigured: isEncryptionConfigured(),
+    encryptionConfigured: encryption.ok,
+    // The precise reason, so the UI never reports a wrong-length key as missing.
+    encryptionReason: encryption.ok ? null : encryption.reason,
   });
 }
 

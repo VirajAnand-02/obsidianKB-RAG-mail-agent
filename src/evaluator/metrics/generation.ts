@@ -51,14 +51,46 @@ export function citationDensity(answer: string): number {
 }
 
 /** Phrases that signal a refusal or a "not in the notes" response. */
+/**
+ * Phrases that signal a refusal or a "not in the notes" response.
+ *
+ * The negation alternatives cover both the contracted and spaced forms of each
+ * verb. Matching only `don't` and not `do not` silently scored every correct
+ * refusal as a failure — including the system's own not-found reply, which
+ * begins "The notes do not contain...".
+ */
+const NEGATION = String.raw`(?:do(?:es)?\s?n[o']?t|did\s?n[o']?t|could\s?n[o']?t|cannot|can\s?n[o']?t|ca[n]?[o']?t|is\s?n[o']?t|are\s?n[o']?t|was\s?n[o']?t|have\s?n[o']?t|has\s?n[o']?t)`;
+// Inflections matter: "cover" alone never matches "not covered".
+const LOOKUP_VERB = String.raw`(?:find|found|contain|cover|have|has|include|mention|discuss|reference|say|know|document)(?:s|ed|ing)?`;
+// System replies state absence with a wider vocabulary than the lookup verbs:
+// "not specified/provided/recorded/listed in the notes". Seen verbatim in the
+// IEEE_Proj golden runs, where all four phrasings scored refusalCorrectness=0
+// despite being correct refusals (groundedness 1.0 from the judge).
+const ABSENCE_VERB = String.raw`(?:specified|provided|recorded|listed|stated|given|documented|mentioned|included|covered|available|present|found)`;
+
 const REFUSAL_PATTERNS = [
-  /\b(?:do(?:es)?n[o']t|did not|didn[o']t|could not|couldn[o']t|cannot|can[o']t)\b[^.]{0,40}\b(?:find|contain|cover|have|include|mention)\b/i,
-  /\bno(?:thing)?\b[^.]{0,30}\b(?:in|within)\b[^.]{0,20}\b(?:notes?|vault|knowledge base)\b/i,
-  /\bnot (?:covered|available|present|documented)\b/i,
-  /\bI (?:don't|do not) have (?:anything|any information)\b/i,
+  new RegExp(String.raw`\b${NEGATION}\b[^.]{0,60}\b${LOOKUP_VERB}\b`, "i"),
+  /\bno(?:thing)?\b[^.]{0,45}\b(?:in|within)\b[^.]{0,30}\b(?:notes?|vault|knowledge base)\b/i,
+  new RegExp(
+    String.raw`\bnot\b[^.]{0,30}\b${ABSENCE_VERB}\b[^.]{0,30}\b(?:in|within)\b[^.]{0,25}\b(?:notes?|vault|context|documentation)\b`,
+    "i",
+  ),
+  /\bnot (?:covered|available|present|documented|mentioned|included)\b/i,
+  /\bI (?:don['’]t|do not) have (?:anything|any information|any notes)\b/i,
+  // Direct non-compliance: "I cannot comply with the request ...",
+  // "I can't answer that question". Answerable answers never phrase this way,
+  // so the false-positive risk is negligible.
+  /\bI\s+(?:cannot|can['’]?t|can\s+not|could\s+not|am\s+unable\s+to)\s+(?:comply(?:\s+with)?|help|assist|answer)(?:\s+(?:with\s+)?(?:that|this|the|your))?\s*(?:question|request|instruction|demand)?/i,
 ];
 
 export function looksLikeRefusal(answer: string): boolean {
+  // A refusal asserts absence and therefore cites nothing. Without this guard,
+  // honest caveats inside cited answers ("no cost breakdown is provided in the
+  // notes", "the library does not explicitly mention X") score as refusals —
+  // seen twice in the IEEE_Proj v4 run, where two passing answers flipped to
+  // refusalCorrectness=0 after the sender prompt started requiring
+  // say-it-is-missing caveats.
+  if (extractCitedIds(answer).length > 0) return false;
   return REFUSAL_PATTERNS.some((p) => p.test(answer));
 }
 

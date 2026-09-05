@@ -72,7 +72,7 @@ export default async function TracesPage({
             <Link
               key={f}
               href={`/dashboard/traces?outcome=${encodeURIComponent(f)}${search ? `&q=${encodeURIComponent(search)}` : ""}`}
-              className={`badge transition-colors ${
+              className={`badge press transition-colors ${
                 active
                   ? "border-[var(--color-accent)] bg-[var(--color-surface-2)] text-[var(--color-ink)]"
                   : "border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-ink)]"
@@ -102,7 +102,7 @@ export default async function TracesPage({
       </div>
 
       {traces.length === 0 ? (
-        <div className="card text-center">
+        <div className="card animate-rise-in text-center">
           <p className="font-medium">Nothing here yet</p>
           <p className="mt-1.5 text-sm text-[var(--color-muted)]">
             {search || outcome !== "all"
@@ -111,12 +111,12 @@ export default async function TracesPage({
           </p>
         </div>
       ) : (
-        <div className="card divide-y divide-[var(--color-border)] p-0">
+        <div className="card stagger divide-y divide-[var(--color-border-soft)] p-0">
           {traces.map((t) => (
             <Link
               key={t.inboundId}
               href={`/dashboard/traces/${t.inboundId}`}
-              className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-surface-2)]"
+              className="row-hover flex items-center gap-3 px-5 py-3.5 hover:bg-[var(--color-surface-3)]"
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">

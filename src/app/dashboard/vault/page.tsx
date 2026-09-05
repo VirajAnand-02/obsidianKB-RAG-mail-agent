@@ -1,6 +1,5 @@
 import UploadMenu from "@/components/UploadMenu";
-import VaultActions from "@/components/VaultActions";
-import VaultExplorer from "@/components/VaultExplorer";
+import VaultSwitcher from "@/components/VaultSwitcher";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getRuntimeConfig } from "@/lib/config";
 
@@ -18,9 +17,6 @@ export default async function VaultPage() {
 
   const activeSpace = (spaces ?? []).find((s) => s.is_active);
   const all = vaults ?? [];
-  // The explorer shows one vault: the default, or the most recent.
-  const current = all.find((v) => v.is_default) ?? all[0];
-  const stats = (current?.stats ?? {}) as Record<string, number>;
 
   return (
     <div>
@@ -39,7 +35,7 @@ export default async function VaultPage() {
       </header>
 
       {all.length === 0 ? (
-        <div className="card text-center">
+        <div className="card animate-rise-in text-center">
           <p className="font-medium">No vault yet</p>
           <p className="mx-auto mt-1.5 max-w-md text-sm text-[var(--color-muted)]">
             Upload a zipped Obsidian vault or pick the folder directly. Markdown notes are
@@ -48,72 +44,17 @@ export default async function VaultPage() {
           </p>
         </div>
       ) : (
-        <>
-          <div className="card mb-3 flex flex-wrap items-center justify-between gap-3 py-3">
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 text-sm font-medium">
-                {current.name as string}
-                {current.is_default && (
-                  <span className="badge text-[var(--color-muted)]">default</span>
-                )}
-                <span
-                  className={`badge ${
-                    current.status === "ready"
-                      ? "border-[#1a4d2e] text-[var(--color-ok)]"
-                      : current.status === "failed"
-                        ? "border-[#5c2229] text-[var(--color-bad)]"
-                        : "border-[#5c4a1a] text-[var(--color-warn)]"
-                  }`}
-                >
-                  {current.status as string}
-                </span>
-              </p>
-              <p className="mt-0.5 text-xs text-[var(--color-muted)]">
-                {stats.notes ?? 0} notes · {stats.chunks ?? 0} chunks ·{" "}
-                {(stats.tokens ?? 0).toLocaleString()} tokens
-                {stats.private ? ` · ${stats.private} private` : ""}
-                {stats.attachments ? ` · ${stats.attachments} attachments skipped` : ""}
-              </p>
-              {current.error && (
-                <p className="mt-1.5 text-xs text-[var(--color-bad)]">{current.error as string}</p>
-              )}
-            </div>
-
-            <VaultActions
-              vaultId={current.id as string}
-              hasArchive={Boolean(current.archive_path)}
-            />
-          </div>
-
-          <VaultExplorer
-            vaultId={current.id as string}
-            noteCount={(stats.notes as number) ?? 0}
-          />
-
-          {all.length > 1 && (
-            <section className="mt-8">
-              <h2 className="mb-2 text-sm font-medium text-[var(--color-muted)]">Other vaults</h2>
-              <div className="card divide-y divide-[var(--color-border-soft)] p-0 text-sm">
-                {all
-                  .filter((v) => v.id !== current.id)
-                  .map((v) => {
-                    const s = (v.stats ?? {}) as Record<string, number>;
-                    return (
-                      <div key={v.id as string} className="flex items-center gap-3 px-5 py-3">
-                        <span className="flex-1 truncate">{v.name as string}</span>
-                        <span className="text-xs text-[var(--color-muted)]">
-                          {s.notes ?? 0} notes
-                        </span>
-                        <span className="badge text-[var(--color-muted)]">
-                          {v.status as string}
-                        </span>
-                      </div>
-                    );
-                  })}
-              </div>
-            </section>
-          )}
-        </>
+        <VaultSwitcher
+          vaults={all.map((v) => ({
+            id: v.id as string,
+            name: v.name as string,
+            status: v.status as string,
+            isDefault: Boolean(v.is_default),
+            hasArchive: Boolean(v.archive_path),
+            error: (v.error as string) ?? null,
+            stats: (v.stats ?? {}) as Record<string, number>,
+          }))}
+        />
       )}
 
       {(runs ?? []).length > 0 && (

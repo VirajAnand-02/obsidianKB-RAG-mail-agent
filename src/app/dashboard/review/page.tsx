@@ -1,4 +1,4 @@
-import ReviewCard from "@/components/ReviewCard";
+import ReviewQueue, { type ReviewDraft } from "@/components/ReviewQueue";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getRuntimeConfig } from "@/lib/config";
 
@@ -7,23 +7,46 @@ export const dynamic = "force-dynamic";
 /**
  * The human-review queue.
  *
- * Everything the grounding gate scored in the uncertain band lands here, with
- * the draft, the excerpts it was built from, and the judge's per-claim verdict
- * side by side — a reviewer should be able to decide without opening the vault.
+ * Everything the grounding gate scored in the uncertain band lands here, plus
+ * anything it blocked outright — a blocked draft is worth seeing, because a
+ * queue that hides its refusals hides its mistakes too.
  */
 export default async function ReviewPage() {
   const db = supabaseAdmin();
   const config = await getRuntimeConfig();
 
-  const { data: drafts } = await db
+  const { data } = await db
     .from("outbound_emails")
-    .select("*, inbound_emails(from_email, from_name, subject, question, received_at)")
+    .select("*, inbound_emails(id, question, received_at)")
     .in("status", ["pending_review", "blocked"])
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(100);
 
-  const pending = (drafts ?? []).filter((d) => d.status === "pending_review");
-  const blocked = (drafts ?? []).filter((d) => d.status === "blocked");
+  const rows = (data ?? []) as unknown as Record<string, unknown>[];
+
+  const drafts: ReviewDraft[] = rows.map((row) => {
+    const inbound = (Array.isArray(row.inbound_emails)
+      ? row.inbound_emails[0]
+      : row.inbound_emails) as Record<string, unknown> | undefined;
+
+    return {
+      id: row.id as string,
+      subject: (row.subject as string) ?? "(no subject)",
+      toEmail: row.to_email as string,
+      bodyMarkdown: (row.body_markdown as string) ?? "",
+      editedBodyMarkdown: (row.edited_body_markdown as string) ?? null,
+      status: row.status as string,
+      groundingScore: (row.grounding_score as number) ?? null,
+      grounding: (row.grounding ?? {}) as ReviewDraft["grounding"],
+      retrieval: (row.retrieval ?? []) as ReviewDraft["retrieval"],
+      question: (inbound?.question as string) ?? null,
+      receivedAt: (inbound?.received_at as string) ?? null,
+      inboundId: (inbound?.id as string) ?? null,
+    };
+  });
+
+  const pending = drafts.filter((d) => d.status === "pending_review").length;
+  const blocked = drafts.length - pending;
 
   return (
     <div>
@@ -32,46 +55,11 @@ export default async function ReviewPage() {
         <p className="mt-1 text-sm text-[var(--color-muted)]">
           Auto-send at ≥ {config.grounding.autosendThreshold} · review at ≥{" "}
           {config.grounding.reviewThreshold} · blocked below that
+          {drafts.length > 0 && ` · ${pending} waiting, ${blocked} blocked`}
         </p>
       </header>
 
-      {pending.length === 0 && blocked.length === 0 && (
-        <div className="card text-center">
-          <p className="font-medium">Nothing waiting</p>
-          <p className="mt-1.5 text-sm text-[var(--color-muted)]">
-            Drafts the grounding gate could not fully verify will appear here.
-          </p>
-        </div>
-      )}
-
-      {pending.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-medium text-[var(--color-muted)]">
-            Awaiting review ({pending.length})
-          </h2>
-          <div className="space-y-4">
-            {pending.map((draft) => (
-              <ReviewCard key={draft.id as string} draft={draft} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {blocked.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 text-sm font-medium text-[var(--color-muted)]">
-            Blocked ({blocked.length})
-          </h2>
-          <p className="mb-3 text-xs text-[var(--color-muted)]">
-            These were not sent. The sender received a &ldquo;not in the notes&rdquo; reply instead.
-          </p>
-          <div className="space-y-4">
-            {blocked.map((draft) => (
-              <ReviewCard key={draft.id as string} draft={draft} />
-            ))}
-          </div>
-        </section>
-      )}
+      <ReviewQueue drafts={drafts} />
     </div>
   );
 }

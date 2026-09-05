@@ -2,7 +2,7 @@
 id: query-rewrite
 name: Query Rewrite
 description: Expands a question into retrieval variants that match how notes are actually written.
-version: 2
+version: 3
 variables:
   - question
   - count
@@ -18,6 +18,10 @@ The point is coverage. A question and the note that answers it rarely share voca
 3. **Hypothetical answer** — one sentence phrased as if it were the answer, in the declarative voice a note would use. (This retrieves well because it lands in the same embedding neighbourhood as the target passage.)
 
 If more than three variants are requested, add narrower sub-questions for the distinct parts of a compound question.
+
+Casual phrasing is the common failure mode — "the maps bit", "camera stuff", "why is it slow" never appear in notes. One variant must translate the question into the note author's vocabulary: the concrete field names a note would use (SSID/password for wifi credentials, ampere rating for driver limits, register/bit/mode for hardware config, NMS/IoU for detection filtering, tile/waypoint/odometry for navigation).
+
+For "why is X slow/broken/limited" questions, add a variant naming the mechanism, not the symptom (loop, post-processing step, inference latency, memory arena) — the note explains the cause under its own name.
 
 Rules:
 - Every variant must be answerable by the same source that answers the original. Do not broaden the topic.

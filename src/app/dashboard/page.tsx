@@ -36,7 +36,7 @@ async function loadOverview() {
 
 function Stat({ label, value, href }: { label: string; value: string | number; href?: string }) {
   const content = (
-    <div className="card transition-colors hover:border-[#3a4150]">
+    <div className="card press h-full transition-colors hover:border-[var(--color-accent)]/50">
       <p className="text-xs text-[var(--color-muted)]">{label}</p>
       <p className="mt-1.5 text-2xl font-semibold tabular-nums">{value}</p>
     </div>
@@ -74,7 +74,7 @@ export default async function OverviewPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="stagger grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Notes indexed" value={data.notes} href="/dashboard/vault" />
         <Stat label="Chunks" value={data.chunks} href="/dashboard/vault" />
         <Stat label="Awaiting review" value={data.pendingReview} href="/dashboard/review" />
@@ -131,7 +131,7 @@ export default async function OverviewPage() {
       {data.recentQueries.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 text-sm font-medium text-[var(--color-muted)]">Recent questions</h2>
-          <div className="card divide-y divide-[var(--color-border)] p-0">
+          <div className="card stagger divide-y divide-[var(--color-border-soft)] p-0">
             {data.recentQueries.map((q) => (
               <div key={q.id as string} className="flex items-center gap-3 px-5 py-3">
                 <span className="badge border-[var(--color-border)] text-[var(--color-muted)]">

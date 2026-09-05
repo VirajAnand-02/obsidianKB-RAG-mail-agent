@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { env } from "@/lib/env";
 
 /**
@@ -11,22 +11,75 @@ import { env } from "@/lib/env";
 
 const ALGO = "aes-256-gcm";
 
-function key(): Buffer {
-  const raw = env.SETTINGS_ENCRYPTION_KEY;
+/**
+ * Resolves the 32-byte AES key.
+ *
+ * A base64 value decoding to exactly 32 bytes is used directly — that is what
+ * `openssl rand -base64 32` produces and it stays byte-compatible with anything
+ * already encrypted. Any other non-trivial secret is stretched to 32 bytes with
+ * scrypt instead of being rejected outright, because the common failure was a
+ * perfectly reasonable passphrase being refused on a technicality and reported
+ * to the operator as "not set".
+ */
+const MIN_SECRET_LENGTH = 12;
+const SCRYPT_SALT = "obsi-relay/settings-encryption/v1";
+
+export type EncryptionStatus =
+  | { ok: true; mode: "raw-32" | "derived" }
+  | { ok: false; reason: string };
+
+/** Non-throwing description of whether encryption can be used, and why not. */
+export function encryptionStatus(): EncryptionStatus {
+  const raw = (env.SETTINGS_ENCRYPTION_KEY ?? "").trim();
+
   if (!raw) {
-    throw new Error(
-      "SETTINGS_ENCRYPTION_KEY is not set. Generate one with `openssl rand -base64 32` " +
-        "and add it to .env before storing provider keys in the dashboard.",
+    return { ok: false, reason: "SETTINGS_ENCRYPTION_KEY is not set." };
+  }
+
+  if (base64Bytes(raw)?.length === 32) return { ok: true, mode: "raw-32" };
+
+  if (raw.length < MIN_SECRET_LENGTH) {
+    return {
+      ok: false,
+      reason:
+        `SETTINGS_ENCRYPTION_KEY is only ${raw.length} characters, which is too weak to ` +
+        `encrypt provider keys. Use at least ${MIN_SECRET_LENGTH}, ideally from ` +
+        "`openssl rand -base64 32`.",
+    };
+  }
+
+  return { ok: true, mode: "derived" };
+}
+
+/** Decodes base64 strictly: returns null unless the value round-trips. */
+function base64Bytes(value: string): Buffer | null {
+  try {
+    const buf = Buffer.from(value, "base64");
+    return buf.toString("base64").replace(/=+$/, "") === value.replace(/=+$/, "") ? buf : null;
+  } catch {
+    return null;
+  }
+}
+
+let derivedWarned = false;
+
+function key(): Buffer {
+  const status = encryptionStatus();
+  if (!status.ok) throw new Error(status.reason);
+
+  const raw = (env.SETTINGS_ENCRYPTION_KEY ?? "").trim();
+  if (status.mode === "raw-32") return base64Bytes(raw)!;
+
+  if (!derivedWarned) {
+    derivedWarned = true;
+    // Worth saying once: a stretched passphrase works, but a random 32-byte key
+    // is stronger and is what the documentation asks for.
+    console.warn(
+      "[warn] crypto: SETTINGS_ENCRYPTION_KEY is not a 32-byte base64 value; deriving a key " +
+        "with scrypt. Prefer `openssl rand -base64 32`.",
     );
   }
-  const buf = Buffer.from(raw, "base64");
-  if (buf.length !== 32) {
-    throw new Error(
-      `SETTINGS_ENCRYPTION_KEY must decode to exactly 32 bytes (got ${buf.length}). ` +
-        "Generate one with `openssl rand -base64 32`.",
-    );
-  }
-  return buf;
+  return scryptSync(raw, SCRYPT_SALT, 32);
 }
 
 export interface Encrypted {
@@ -60,10 +113,5 @@ export function decryptSecret(enc: Omit<Encrypted, "hint">): string {
 }
 
 export function isEncryptionConfigured(): boolean {
-  try {
-    key();
-    return true;
-  } catch {
-    return false;
-  }
+  return encryptionStatus().ok;
 }
