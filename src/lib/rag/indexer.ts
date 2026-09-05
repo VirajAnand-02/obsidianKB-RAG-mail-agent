@@ -159,6 +159,8 @@ export async function indexNotes(
                 links: note.links,
                 aliases: note.aliases,
                 content_hash: note.contentHash,
+                // Kept for the preview pane; chunks are lossy for display.
+                body: note.body,
                 word_count: note.wordCount,
                 is_private: note.isPrivate,
                 note_created_at: note.createdAt ?? null,

@@ -194,8 +194,22 @@ function tailForOverlap(text: string, overlapTokens: number): string {
   return tail.join(" ");
 }
 
+/**
+ * Builds the "Note > H1 > H2" trail prepended to each chunk.
+ *
+ * A leading heading identical to the note title is dropped. Repeating the
+ * filename as an H1 is the Obsidian norm, and without this every chunk of such
+ * a note starts "Retry policy > Retry policy > Defaults" — tokens spent on a
+ * duplicate, in the text that gets embedded and shown to the model.
+ */
 function breadcrumb(noteTitle: string, headings: string[]): string[] {
-  return [noteTitle, ...headings].filter(Boolean);
+  const trail = headings.filter(Boolean);
+
+  if (trail.length > 0 && trail[0].trim().toLowerCase() === noteTitle.trim().toLowerCase()) {
+    trail.shift();
+  }
+
+  return [noteTitle, ...trail].filter(Boolean);
 }
 
 /**

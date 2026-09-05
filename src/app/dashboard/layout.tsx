@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import {
   Activity,
   BookOpen,
-  FlaskConical,
   Inbox,
   LayoutDashboard,
   MessageSquare,
@@ -24,7 +23,6 @@ const NAV = [
   { href: "/dashboard/traces", label: "Traces", icon: Activity },
   { href: "/dashboard/review", label: "Review queue", icon: Inbox },
   { href: "/dashboard/playground", label: "Playground", icon: MessageSquare },
-  { href: "/dashboard/evals", label: "Evaluations", icon: FlaskConical },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
@@ -58,7 +56,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-60 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-surface)] p-4 md:block">
+      <aside className="hidden w-60 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-surface)] p-3 md:block">
         <Link href="/" className="mb-6 flex items-center gap-2 px-2">
           <span className="h-2 w-2 rounded-full bg-[var(--color-accent)]" />
           <span className="font-semibold">Obsi-Relay</span>
@@ -69,7 +67,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)]"
+              className="nav-item"
             >
               <Icon size={16} />
               {label}
@@ -79,13 +77,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
         <div className="mt-6 border-t border-[var(--color-border)] pt-4">
           {runtimeConfig.email.dryRun && (
-            <div className="mb-3 rounded-lg border border-[#5c4a1a] bg-[#241f10] px-2.5 py-2 text-xs text-[var(--color-warn)]">
+            <div className="callout callout-warn mb-3">
               Dry-run mode — email is rendered but never delivered.
             </div>
           )}
 
           {bypassed && (
-            <div className="mb-3 rounded-lg border border-[#5c2a2a] bg-[#2a1516] px-2.5 py-2 text-xs text-[var(--color-bad)]">
+            <div className="callout callout-bad mb-3">
               Sign-in bypassed (development). Set <code>DEV_AUTH_BYPASS=false</code> to test the
               real login.
             </div>
