@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Database, Loader2, RefreshCw, Repeat, Star } from "lucide-react";
+import { Check, Database, Loader2, RefreshCw, Repeat, Star, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import VaultExplorer from "@/components/VaultExplorer";
@@ -40,6 +40,8 @@ export default function VaultSwitcher({ vaults }: { vaults: VaultSummary[] }) {
   );
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  // Deleting is irreversible, so the button arms itself before it fires.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const selected = vaults.find((v) => v.id === selectedId) ?? vaults[0];
   if (!selected) return null;
@@ -63,6 +65,31 @@ export default function VaultSwitcher({ vaults }: { vaults: VaultSummary[] }) {
       router.refresh();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function remove() {
+    setBusy("delete");
+    setMessage("");
+
+    try {
+      const res = await fetch(`/api/vault/${selected.id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Delete failed.");
+
+      // Move the view off the vault that no longer exists before refreshing.
+      const remaining = vaults.filter((v) => v.id !== selected.id);
+      setSelectedId(remaining[0]?.id);
+      setConfirmingDelete(false);
+      setMessage(
+        `Deleted ${json.name} (${json.notes} notes, ${json.chunks} chunks)` +
+          (json.promoted ? ` — ${json.promoted} now answers email.` : "."),
+      );
+      router.refresh();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Delete failed.");
     } finally {
       setBusy(null);
     }
@@ -177,6 +204,41 @@ export default function VaultSwitcher({ vaults }: { vaults: VaultSummary[] }) {
                 )}
                 Re-index
               </button>
+
+              {confirmingDelete ? (
+                <>
+                  <button
+                    onClick={remove}
+                    disabled={busy !== null}
+                    className="btn-danger press animate-slide-down text-xs"
+                    title={`Permanently delete ${selected.name} and everything indexed from it`}
+                  >
+                    {busy === "delete" ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={13} />
+                    )}
+                    Delete {selected.stats.notes ?? 0} notes?
+                  </button>
+                  <button
+                    onClick={() => setConfirmingDelete(false)}
+                    disabled={busy !== null}
+                    className="btn-ghost press text-xs"
+                    aria-label="Cancel delete"
+                  >
+                    <X size={13} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setConfirmingDelete(true)}
+                  disabled={busy !== null}
+                  className="btn-ghost press text-xs text-[var(--color-muted)] hover:text-[var(--color-bad)]"
+                  title="Delete this vault"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
             </div>
             {message && (
               <p className="animate-fade-in text-xs text-[var(--color-muted)]">{message}</p>
