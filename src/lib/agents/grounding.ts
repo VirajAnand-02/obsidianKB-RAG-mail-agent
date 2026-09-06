@@ -5,7 +5,7 @@ import { getRuntimeConfig } from "@/lib/config";
 import { getGroundingModel } from "@/lib/ai/registry";
 import { renderPrompt } from "@/lib/prompts";
 import { createLogger, errorMessage } from "@/lib/logger";
-import type { GateDecision, GroundingReport, RetrievedChunk } from "@/lib/types";
+import type { GateDecision, GroundingClaim, GroundingReport, RetrievedChunk } from "@/lib/types";
 
 const log = createLogger("agent:grounding");
 
@@ -27,7 +27,13 @@ const claimSchema = z.object({
   status: z.enum(["supported", "partial", "unsupported", "contradicted"]),
   citedIds: z.array(z.string()).default([]),
   supportingIds: z.array(z.string()).default([]),
-  note: z.string().optional(),
+  // The prompt asks for an explicit `null` when a claim is supported, which is
+  // clearer than omitting the key — so the schema has to accept it. A plain
+  // `.optional()` here rejected every well-formed report the judge produced.
+  note: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? undefined),
 });
 
 const reportSchema = z.object({
@@ -81,6 +87,49 @@ export function checkCitations(
   const invalidIds = cited.filter((id) => !available.has(id));
 
   return { valid: invalidIds.length === 0, invalidIds, hasCitations: cited.length > 0 };
+}
+
+/** Score caps, mirroring the rubric in groundingCheck.md. */
+const PARTIAL_CAP = 0.85;
+const UNSUPPORTED_CAP = 0.5;
+const CONTRADICTED_CAP = 0.2;
+
+/**
+ * Derives the score and verdict from the per-claim statuses.
+ *
+ * The judge is asked to compute these itself, but asking is not the same as
+ * enforcing: a real report came back with all five claims marked `supported`
+ * and a score of 0.8 with verdict `review`, downgraded in prose over a phrase
+ * the model disliked but never recorded as a claim. That is unauditable — the
+ * reviewer sees a penalty with nothing behind it.
+ *
+ * Computing both here makes the claim list the single source of truth. The
+ * judge can still influence the outcome, but only by saying which claim is
+ * weak, which is exactly the thing a human can check.
+ */
+export function scoreFromClaims(claims: GroundingClaim[]): {
+  score: number;
+  verdict: "pass" | "review" | "block";
+} {
+  if (claims.length === 0) return { score: 1, verdict: "pass" };
+
+  const supported = claims.filter((c) => c.status === "supported").length;
+  const partial = claims.filter((c) => c.status === "partial").length;
+  const unsupported = claims.filter((c) => c.status === "unsupported").length;
+  const contradicted = claims.filter((c) => c.status === "contradicted").length;
+
+  // Partial claims earn half credit: the substance is there, a detail is not.
+  let score = (supported + 0.5 * partial) / claims.length;
+  if (partial > 0) score = Math.min(score, PARTIAL_CAP);
+  if (unsupported > 0) score = Math.min(score, UNSUPPORTED_CAP);
+  if (contradicted > 0) score = Math.min(score, CONTRADICTED_CAP);
+
+  // Only a claim the notes cannot support is a hard stop. Everything else is
+  // left to the score, so `autosendThreshold` is a dial that actually moves —
+  // previously any partial forced review regardless of what it was set to.
+  const verdict = contradicted > 0 || unsupported > 0 ? "block" : "pass";
+
+  return { score: Number(score.toFixed(3)), verdict };
 }
 
 export interface GroundingInput {
@@ -142,7 +191,26 @@ export async function checkGrounding(input: GroundingInput): Promise<GroundingRe
       maxOutputTokens: 2000,
     });
 
-    const report: GroundingReport = { ...object, verdict: object.verdict };
+    const computed = scoreFromClaims(object.claims);
+
+    // A judge whose own numbers disagree with its claim list is drifting from
+    // the rubric. Worth seeing in the log, but the computed value is what counts.
+    if (Math.abs(computed.score - object.score) > 0.05 || computed.verdict !== object.verdict) {
+      log.warn("Grounding judge disagreed with its own claims; using the computed result", {
+        reported: { score: object.score, verdict: object.verdict },
+        computed,
+        claims: object.claims.map((c) => c.status),
+      });
+    }
+
+    const report: GroundingReport = {
+      ...object,
+      score: computed.score,
+      // A `block` from the judge is a safety escalation ("this would mislead"),
+      // so it is honoured even when the claim statuses do not force it. The
+      // reverse — a silent downgrade to `review` — is not.
+      verdict: object.verdict === "block" ? "block" : computed.verdict,
+    };
 
     // Citations are required but absent: cap the score regardless of the judge's
     // opinion, since an uncited answer cannot be audited by the reviewer either.
