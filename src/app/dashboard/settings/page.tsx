@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Save } from "lucide-react";
+import { CheckCircle2, Loader2, PlugZap, Save, XCircle } from "lucide-react";
 
 interface EmbeddingModelInfo {
   provider: string;
@@ -36,6 +36,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [llmCheck, setLlmCheck] = useState<{ ok: boolean; message: string } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -58,7 +60,47 @@ export default function SettingsPage() {
   }, []);
 
   function set(key: string, value: unknown) {
+    // A result for the previous provider/model would read as a verdict on the
+    // new one, so it is dropped the moment either changes.
+    if (key === "llm.provider" || key === "llm.model") setLlmCheck(null);
     setValues((v) => ({ ...v, [key]: value }));
+  }
+
+  /**
+   * Asks the model on screen for one throwaway reply.
+   *
+   * Answers the question the rest of this page cannot: not "is a key stored"
+   * but "does this provider and model id actually work right now".
+   */
+  async function testLanguageModel() {
+    setTesting(true);
+    setLlmCheck(null);
+
+    try {
+      const res = await fetch("/api/settings/test-llm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          provider: values["llm.provider"],
+          model: values["llm.model"],
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "The check could not be run.");
+
+      setLlmCheck(
+        json.ok
+          ? { ok: true, message: `${json.provider}/${json.model} replied in ${json.latencyMs} ms.` }
+          : { ok: false, message: json.error ?? "The model did not respond." },
+      );
+    } catch (e) {
+      setLlmCheck({
+        ok: false,
+        message: e instanceof Error ? e.message : "The check could not be run.",
+      });
+    } finally {
+      setTesting(false);
+    }
   }
 
   async function save() {
@@ -158,6 +200,40 @@ export default function SettingsPage() {
             onChange={(e) => set("llm.maxOutputTokens", Number(e.target.value))}
           />
         </Field>
+
+        <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+          <button onClick={testLanguageModel} disabled={testing} className="btn">
+            {testing ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <PlugZap size={14} />
+            )}
+            {testing ? "Checking…" : "Check model"}
+          </button>
+
+          {llmCheck && (
+            <span
+              className={`animate-fade-in flex items-start gap-1.5 text-xs ${
+                llmCheck.ok ? "text-[var(--color-ok)]" : "text-[var(--color-bad)]"
+              }`}
+              aria-live="polite"
+            >
+              {llmCheck.ok ? (
+                <CheckCircle2 size={13} className="mt-px shrink-0" />
+              ) : (
+                <XCircle size={13} className="mt-px shrink-0" />
+              )}
+              {llmCheck.message}
+            </span>
+          )}
+
+          {!llmCheck && !testing && (
+            <span className="text-xs text-[var(--color-muted)]">
+              Sends one throwaway prompt. A key entered below has to be saved before it can be
+              checked.
+            </span>
+          )}
+        </div>
       </Section>
 
       {/* ---------------------------------------------------- embeddings --- */}

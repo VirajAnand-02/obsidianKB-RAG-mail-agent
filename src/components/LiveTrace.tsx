@@ -35,6 +35,14 @@ interface Stage {
   render: () => React.ReactNode;
 }
 
+/** What the pipeline did with the draft, as opposed to what the judge thought. */
+function routingLabel(status: string): string | null {
+  if (status === "sent" || status === "sending") return "Sent automatically";
+  if (status === "pending_review") return "Queued for human review";
+  if (status === "blocked") return "Blocked";
+  return null;
+}
+
 function isTerminal(trace: TraceDetail): boolean {
   return trace.outcome !== "processing";
 }
@@ -341,8 +349,16 @@ function buildStages(trace: TraceDetail): Stage[] {
       state: "done",
       render: () => (
         <>
+          {/* The verdict in the label is the judge's; the outcome is the
+              pipeline's, and they do not always agree — a draft can score 1.00
+              here and still be held back because triage flagged the email for a
+              human. Naming the outcome next to the rationale keeps a perfect
+              score sitting above "queued for review" from reading as a bug. */}
           {(out.grounding.rationale || out.grounding.reasoning) && (
             <p className="mb-3 text-sm text-[var(--color-muted)]">
+              {routingLabel(out.status) && (
+                <span className="text-[var(--color-ink)]">{routingLabel(out.status)} — </span>
+              )}
               {out.grounding.rationale || out.grounding.reasoning}
             </p>
           )}
