@@ -1,6 +1,8 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 
+import { looseString } from "@/lib/ai/schema";
+
 import { getJudgeModel } from "@/lib/ai/registry";
 import { renderPrompt } from "@/lib/prompts";
 import { createLogger, errorMessage } from "@/lib/logger";
@@ -34,7 +36,7 @@ const groundednessSchema = z.object({
       }),
     )
     .default([]),
-  reasoning: z.string().default(""),
+  reasoning: looseString(""),
 });
 
 const qualitySchema = z.object({
@@ -43,7 +45,7 @@ const qualitySchema = z.object({
   hasReference: z.boolean().default(false),
   missingPoints: z.array(z.string()).default([]),
   incorrectPoints: z.array(z.string()).default([]),
-  reasoning: z.string().default(""),
+  reasoning: looseString(""),
 });
 
 const toneSchema = z.object({
@@ -51,12 +53,12 @@ const toneSchema = z.object({
   formatIssues: z.array(z.string()).default([]),
   sendable: z.boolean().default(true),
   worstProblem: z.string().nullable().default(null),
-  reasoning: z.string().default(""),
+  reasoning: looseString(""),
 });
 
 const relevanceSchema = z.object({
   ratings: z
-    .array(z.object({ id: z.string(), rating: z.number().min(0).max(2), why: z.string().default("") }))
+    .array(z.object({ id: z.string(), rating: z.number().min(0).max(2), why: looseString("") }))
     .default([]),
   bestId: z.string().nullable().default(null),
   missingInformation: z.string().nullable().default(null),

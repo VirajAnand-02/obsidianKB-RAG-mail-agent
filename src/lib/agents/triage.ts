@@ -1,6 +1,8 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 
+import { looseString, nullableString } from "@/lib/ai/schema";
+
 import { getLanguageModel } from "@/lib/ai/registry";
 import { renderPrompt } from "@/lib/prompts";
 import { createLogger, errorMessage } from "@/lib/logger";
@@ -9,10 +11,14 @@ const log = createLogger("agent:triage");
 
 const triageSchema = z.object({
   classification: z.enum(["question", "ignore", "human"]),
-  question: z.string().nullable().default(null),
-  topic: z.string().default(""),
+  // The prompt asks for null on every one of these when there is nothing to
+  // report, and `reason` is explicitly null on the happy path — a plain
+  // `z.string()` rejected it, so every genuine question failed to parse,
+  // fell back to "human", and was forced into review.
+  question: nullableString(),
+  topic: looseString(""),
   confidence: z.number().min(0).max(1).default(0.5),
-  reason: z.string().default(""),
+  reason: looseString(""),
 });
 
 export type TriageResult = z.infer<typeof triageSchema>;

@@ -1,6 +1,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 
+import { looseString, optionalString } from "@/lib/ai/schema";
 import { getRuntimeConfig } from "@/lib/config";
 import { getGroundingModel } from "@/lib/ai/registry";
 import { renderPrompt } from "@/lib/prompts";
@@ -30,10 +31,7 @@ const claimSchema = z.object({
   // The prompt asks for an explicit `null` when a claim is supported, which is
   // clearer than omitting the key — so the schema has to accept it. A plain
   // `.optional()` here rejected every well-formed report the judge produced.
-  note: z
-    .string()
-    .nullish()
-    .transform((v) => v ?? undefined),
+  note: optionalString(),
 });
 
 const reportSchema = z.object({
@@ -43,7 +41,7 @@ const reportSchema = z.object({
   unsupportedClaims: z.array(z.string()).default([]),
   hallucinationRisk: z.enum(["low", "medium", "high"]).default("medium"),
   missingCitations: z.boolean().default(false),
-  reasoning: z.string().default(""),
+  reasoning: looseString(""),
 });
 
 /**
