@@ -20,3 +20,4 @@ next-env.d.ts
 IEEE_Proj/
 vaults/
 *.vault/
+demo_vault/
