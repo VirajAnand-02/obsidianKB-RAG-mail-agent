@@ -9,7 +9,7 @@ import {
   Settings,
 } from "lucide-react";
 
-import { getAdmin, isDevAuthBypassEnabled } from "@/lib/auth";
+import { getAdmin, isDemoMode, isDevAuthBypassEnabled } from "@/lib/auth";
 import SignOutButton from "@/components/SignOutButton";
 import ScrollToTop from "@/components/ScrollToTop";
 import NavLink from "@/components/NavLink";
@@ -33,6 +33,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!user) redirect("/login?next=/dashboard");
 
   const bypassed = isDevAuthBypassEnabled();
+  const demo = isDemoMode();
   const runtimeConfig = await getRuntimeConfig();
 
   // Checked after the session, so the setup notice (which names environment
@@ -82,7 +83,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </div>
           )}
 
-          {bypassed && (
+          {demo && (
+            <div className="callout callout-warn mb-3">
+              <strong>Demo mode.</strong> Sign-in is disabled and every visitor has full admin
+              access, including sending email.
+            </div>
+          )}
+
+          {bypassed && !demo && (
             <div className="callout callout-bad mb-3">
               Sign-in bypassed (development). Set <code>DEV_AUTH_BYPASS=false</code> to test the
               real login.
@@ -91,7 +99,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
           <div className="flex items-center justify-between gap-2 px-2.5">
             <p className="truncate text-xs text-[var(--color-muted)]">{user.email}</p>
-            {!bypassed && <SignOutButton />}
+            {!bypassed && !demo && <SignOutButton />}
           </div>
         </div>
       </aside>

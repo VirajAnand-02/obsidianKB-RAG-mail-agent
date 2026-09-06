@@ -91,6 +91,9 @@ const schema = z.object({
   SUPABASE_SECRET_KEY: str(),
   SUPABASE_DB_URL: str(),
 
+  // Public demo: no sign-in, full access. See isDemoMode() in lib/auth.
+  DEMO_MODE: bool(false),
+
   // ---- dashboard sign-in (single admin account) ----
   ADMIN_EMAIL: str(),
   ADMIN_PASSWORD: str(),

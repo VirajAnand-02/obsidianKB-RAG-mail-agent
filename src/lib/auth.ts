@@ -143,6 +143,35 @@ export function verifyCredentials(email: string, password: string): boolean {
  *     to production regardless of `.env`.
  *   - `DEV_AUTH_BYPASS=false` opts out, to exercise the real login locally.
  */
+/**
+ * Public demo mode.
+ *
+ * Set `DEMO_MODE=true` and the dashboard opens with no login at all, so a
+ * recruiter or reviewer can walk through the whole system without credentials.
+ *
+ * Unlike `DEV_AUTH_BYPASS`, this deliberately *does* apply in production and on
+ * Vercel — a demo nobody can reach is not a demo.
+ *
+ * Access is genuinely complete: uploading and re-indexing vaults, the
+ * playground, settings, provider credentials, traces, and approving a draft in
+ * the review queue, which sends a real email. Nothing is stubbed or read-only,
+ * because a demo that quietly disables the interesting half demonstrates
+ * nothing.
+ *
+ * That makes it the single most dangerous flag in the project. It is off by
+ * default, must be set explicitly, is announced in the UI on every page, and
+ * logs a warning on first use. Turn it off when the demo window closes.
+ */
+export function isDemoMode(): boolean {
+  const value = (process.env.DEMO_MODE ?? "").trim().toLowerCase();
+  return value === "true" || value === "1" || value === "on";
+}
+
+/** The identity every visitor is given while the demo is open. */
+export function demoUser(): AdminUser {
+  return { id: "demo", email: "demo@obsi-relay" };
+}
+
 export function isDevAuthBypassEnabled(): boolean {
   if (process.env.VERCEL) return false;
   if (process.env.NODE_ENV === "production") return false;
@@ -159,12 +188,25 @@ export function devAdminUser(): AdminUser {
 
 // Warned once per process, so the bypass is visible without flooding the log.
 let bypassWarned = false;
+let demoWarned = false;
 
 // ---------------------------------------------------------------------------
 // Session access
 // ---------------------------------------------------------------------------
 
 export async function getAdmin(): Promise<AdminUser | null> {
+  // Checked before everything else: in demo mode there is no session to read.
+  if (isDemoMode()) {
+    if (!demoWarned) {
+      demoWarned = true;
+      log.warn(
+        "DEMO_MODE is on — the dashboard is open to anyone with the URL, with full admin " +
+          "access including sending email. Unset DEMO_MODE to require a sign-in.",
+      );
+    }
+    return demoUser();
+  }
+
   if (isDevAuthBypassEnabled()) {
     if (!bypassWarned) {
       bypassWarned = true;
