@@ -93,29 +93,54 @@ export function checkCitations(
 const PLEASANTRY_PATTERN =
   /^(?:let me know|just let me know|hope (?:that |this )?helps|happy to help|glad to help|feel free|don'?t hesitate|please (?:reach out|get in touch)|reach out if)\b/i;
 
-/** Longer than this and the fragment is carrying more than a pleasantry. */
-const PLEASANTRY_MAX_CHARS = 120;
+/**
+ * Advice about what to put in the sender's own next message: "mention your
+ * expected volume and timeline in your email".
+ *
+ * Both halves are required — an instruction verb *and* a reference to the
+ * message being written — which is what separates guidance on how to write back
+ * from a policy statement. "Return the item within fourteen days" names no
+ * message and stays a claim.
+ */
+const ADVICE_VERB_PATTERN = /\b(?:mention|include|specify|share|describe|state|add|tell us|let us know)\b/i;
+const ABOUT_THE_MESSAGE_PATTERN =
+  /\b(?:in|with|when) (?:your|you) (?:email|message|reply|request|note|write|writing)|your (?:email|message|reply|request)\b/i;
+
+/** Longer than this and the fragment is carrying more than a courtesy. */
+const NON_CLAIM_MAX_CHARS = 160;
 
 /**
  * True for a fragment that asserts nothing an excerpt could confirm or refute.
  *
- * The prompt tells the judge to leave sign-offs out of the claim list, and a
- * capable judge does. A small one does not: `ministral-14b` reported "Let me
- * know if you'd like help with anything else!" as an `unsupported` claim on two
- * runs out of three, which penalised a reply whose every real claim was
- * supported. Since the gate must work with whatever judge is configured, the
- * check is made here rather than left to instruction-following.
+ * Two kinds show up in drafts, and the judge reports both as claims:
  *
- * Deliberately narrow, because a false positive here silently drops a claim
- * from scoring. It must open with an offer of further help, stay short, and
- * carry nothing checkable — a number, address, link, or code span, as in "feel
- * free to email support@acme.example", makes it a real claim, scored normally.
+ *  - Closing pleasantries. `ministral-14b` marked "Let me know if you'd like
+ *    help with anything else!" `unsupported` on two runs out of three.
+ *  - Advice on writing back — "if you need a custom solution, mention your
+ *    expected volume and timeline in your email". That is guidance to the
+ *    sender, not an assertion about the notes, but a judge asked to find
+ *    evidence for it will not find any and marks it unsupported.
+ *
+ * Neither is answerable by an excerpt, and the prompt says to leave both out of
+ * the claim list. A capable judge does; a small one does not, and the gate has
+ * to work with whichever is configured, so the check is made here rather than
+ * left to instruction-following.
+ *
+ * Deliberately narrow, because a false positive silently drops a claim from
+ * scoring. A fragment must match one of the two shapes, stay short, and carry
+ * nothing checkable — a number, address, link, or code span, as in "feel free to
+ * email support@acme.example" or "back off from 2 seconds", makes it a real
+ * claim, scored normally. Note that the payload test alone would not be safe:
+ * "Enterprise customers get unlimited requests" has no number in it either, and
+ * must stay a claim. The sentence shape is what does the work.
  */
 export function isNonClaim(text: string): boolean {
   const trimmed = text.trim().replace(/^[*_`"'\s]+/, "");
-  if (trimmed.length > PLEASANTRY_MAX_CHARS) return false;
-  if (!PLEASANTRY_PATTERN.test(trimmed)) return false;
-  return !/[\d@]|https?:|`/.test(trimmed);
+  if (trimmed.length > NON_CLAIM_MAX_CHARS) return false;
+  if (/[\d@]|https?:|`/.test(trimmed)) return false;
+
+  if (PLEASANTRY_PATTERN.test(trimmed)) return true;
+  return ADVICE_VERB_PATTERN.test(trimmed) && ABOUT_THE_MESSAGE_PATTERN.test(trimmed);
 }
 
 /** Score caps, mirroring the rubric in groundingCheck.md. */

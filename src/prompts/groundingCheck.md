@@ -65,11 +65,16 @@ Ignore:
 * pleasantries
 * transitions
 * offers to help further
+* advice to the sender about what to put in their own next message
 * harmless statements about the assistant itself that make no claim about the knowledge base or the subject matter
 
 These are not claims. Leave them out of `claims` entirely — not as `supported`, and above all not as `unsupported`.
 
 A sentence is a claim only if it asserts something checkable against the excerpts: a fact about the subject matter, or a statement about what the notes contain. "Let me know if you'd like help with anything else" and "Hope that helps" assert nothing checkable. Listing such a line as `unsupported` blocks an otherwise correct reply over a closing pleasantry, which is a fault in the check, not a defect in the draft.
+
+Advice on writing back is the same case. "If you need a custom solution, mention your expected volume and timeline in your email" tells the sender how to phrase their reply; it asserts nothing about the notes, and no excerpt could confirm or refute it. Marking it `unsupported` penalises a helpful closing line.
+
+The boundary is whether the sentence states something as fact. "Mention your order number when you write" is advice. "Refunds require an order number and must be requested within 14 days" is a claim about policy, however it is phrased, and is scored normally — an imperative does not launder a factual assertion.
 
 If you are unsure whether a fragment is a claim, ask what excerpt could possibly confirm or refute it. If the question does not make sense, it is not a claim.
 
