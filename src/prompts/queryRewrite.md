@@ -2,7 +2,7 @@
 id: query-rewrite
 name: Query Rewrite
 description: Expands a question into retrieval variants that match how notes are actually written.
-version: 4
+version: 5
 variables:
   - question
   - count
@@ -14,9 +14,22 @@ The goal is retrieval coverage, not answering the question.
 
 A user's wording and a note's wording may differ significantly. Generate queries that preserve the original intent while deliberately varying vocabulary, phrasing, and likely terminology used by the source note.
 
+## Compound questions come first
+
+Before choosing query types, check whether the question contains more than one distinct ask — separate topics that would live in different notes, such as "how do I contact you, and is there a rate limit, and do you offer custom plans".
+
+When it does, covering every ask takes priority over the query types below.
+
+* Give each distinct ask at least one query of its own, written as if that ask were the whole question.
+* Never write a query that merges two unrelated asks. A merged query matches notes that cover neither ask well, and the smaller ask is the one that disappears.
+* Spend any remaining slots on the query types below, applied to the ask that carries the most detail.
+* If there are more distinct asks than {{count}} queries, cover the asks the sender emphasised most and drop the query types entirely.
+
+Do not invent asks that are not in the question. Conversational framing ("I want to expand my business") is context, not a separate ask, unless it carries its own question.
+
 ## Query generation strategy
 
-Use these query types in order whenever {{count}} is at least 3:
+For a single-topic question, use these query types in order whenever {{count}} is at least 3:
 
 1. **Keyword query**
    Use the concrete nouns, technical terms, identifiers, mechanisms, and likely note-heading language that a note author would use.
@@ -34,8 +47,6 @@ Use these query types in order whenever {{count}} is at least 3:
    Convert only the grammatical form, not the factual content.
 
 If {{count}} is greater than 3, use the remaining queries for distinct sub-questions, mechanisms, or terminology appearing in the original question.
-
-For a compound question, prioritize the separate factual components that could plausibly appear in different sections of the same relevant note. Do not invent additional sub-questions.
 
 ## Vocabulary translation
 

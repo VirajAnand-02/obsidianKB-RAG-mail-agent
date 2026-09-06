@@ -87,6 +87,37 @@ export function checkCitations(
   return { valid: invalidIds.length === 0, invalidIds, hasCitations: cited.length > 0 };
 }
 
+/**
+ * Openers to closing pleasantries: "let me know if...", "hope that helps".
+ */
+const PLEASANTRY_PATTERN =
+  /^(?:let me know|just let me know|hope (?:that |this )?helps|happy to help|glad to help|feel free|don'?t hesitate|please (?:reach out|get in touch)|reach out if)\b/i;
+
+/** Longer than this and the fragment is carrying more than a pleasantry. */
+const PLEASANTRY_MAX_CHARS = 120;
+
+/**
+ * True for a fragment that asserts nothing an excerpt could confirm or refute.
+ *
+ * The prompt tells the judge to leave sign-offs out of the claim list, and a
+ * capable judge does. A small one does not: `ministral-14b` reported "Let me
+ * know if you'd like help with anything else!" as an `unsupported` claim on two
+ * runs out of three, which penalised a reply whose every real claim was
+ * supported. Since the gate must work with whatever judge is configured, the
+ * check is made here rather than left to instruction-following.
+ *
+ * Deliberately narrow, because a false positive here silently drops a claim
+ * from scoring. It must open with an offer of further help, stay short, and
+ * carry nothing checkable — a number, address, link, or code span, as in "feel
+ * free to email support@acme.example", makes it a real claim, scored normally.
+ */
+export function isNonClaim(text: string): boolean {
+  const trimmed = text.trim().replace(/^[*_`"'\s]+/, "");
+  if (trimmed.length > PLEASANTRY_MAX_CHARS) return false;
+  if (!PLEASANTRY_PATTERN.test(trimmed)) return false;
+  return !/[\d@]|https?:|`/.test(trimmed);
+}
+
 /** Score caps, mirroring the rubric in groundingCheck.md. */
 const PARTIAL_CAP = 0.85;
 const UNSUPPORTED_CAP = 0.5;
@@ -105,10 +136,11 @@ const CONTRADICTED_CAP = 0.2;
  * judge can still influence the outcome, but only by saying which claim is
  * weak, which is exactly the thing a human can check.
  */
-export function scoreFromClaims(claims: GroundingClaim[]): {
+export function scoreFromClaims(allClaims: GroundingClaim[]): {
   score: number;
   verdict: "pass" | "review" | "block";
 } {
+  const claims = allClaims.filter((c) => !isNonClaim(c.claim));
   if (claims.length === 0) return { score: 1, verdict: "pass" };
 
   const supported = claims.filter((c) => c.status === "supported").length;
@@ -122,10 +154,19 @@ export function scoreFromClaims(claims: GroundingClaim[]): {
   if (unsupported > 0) score = Math.min(score, UNSUPPORTED_CAP);
   if (contradicted > 0) score = Math.min(score, CONTRADICTED_CAP);
 
-  // Only a claim the notes cannot support is a hard stop. Everything else is
-  // left to the score, so `autosendThreshold` is a dial that actually moves —
-  // previously any partial forced review regardless of what it was set to.
-  const verdict = contradicted > 0 || unsupported > 0 ? "block" : "pass";
+  // Contradiction is the only hard stop: the draft asserts something the notes
+  // deny, and no threshold should be able to wave that through.
+  //
+  // A single `unsupported` claim used to block too, which made one stray line
+  // fatal to an otherwise correct reply — and the judge produces stray lines. A
+  // 14B judge listed the sign-off "Let me know if you'd like help with anything
+  // else!" as unsupported and killed a draft whose every real claim checked out.
+  // Unsupported claims now cap the score at 0.5 and let the thresholds decide,
+  // which is proportional: one bad line in five leaves the score at the cap and
+  // lands in review, while a draft that is mostly unsupported falls below
+  // `reviewThreshold` on the base score and is blocked anyway. Either way it is
+  // never auto-sent, because the cap sits below any sane `autosendThreshold`.
+  const verdict = contradicted > 0 ? "block" : unsupported > 0 ? "review" : "pass";
 
   return { score: Number(score.toFixed(3)), verdict };
 }
@@ -189,7 +230,17 @@ export async function checkGrounding(input: GroundingInput): Promise<GroundingRe
       maxOutputTokens: 2000,
     });
 
-    const computed = scoreFromClaims(object.claims);
+    // Drop the sign-offs the judge should not have listed, so the report a
+    // reviewer reads matches the score they see.
+    const claims = object.claims.filter((c) => !isNonClaim(c.claim));
+    const dropped = object.claims.length - claims.length;
+    if (dropped > 0) {
+      log.warn("Grounding judge reported pleasantries as claims; excluded from scoring", {
+        dropped: object.claims.filter((c) => isNonClaim(c.claim)).map((c) => c.claim),
+      });
+    }
+
+    const computed = scoreFromClaims(claims);
 
     // A judge whose own numbers disagree with its claim list is drifting from
     // the rubric. Worth seeing in the log, but the computed value is what counts.
@@ -197,17 +248,41 @@ export async function checkGrounding(input: GroundingInput): Promise<GroundingRe
       log.warn("Grounding judge disagreed with its own claims; using the computed result", {
         reported: { score: object.score, verdict: object.verdict },
         computed,
-        claims: object.claims.map((c) => c.status),
+        claims: claims.map((c) => c.status),
       });
+    }
+
+    // A `block` from the judge is a safety escalation ("this would mislead"),
+    // so it is never overridden downwards to `pass`. But a block with nothing in
+    // the claim list to justify it is unauditable: the reviewer sees a killed
+    // reply and no defect to point at. That happened to a correct partial
+    // answer — every claim `supported`, blocked anyway because the draft did not
+    // cover one part of a compound question. Unbacked escalations become
+    // `review`, which stops the send without discarding the draft; a claim-
+    // backed block is still a block.
+    // Only a contradicted claim backs a block. An unsupported one is already
+    // capped to `review` above, and letting the judge escalate on it would undo
+    // that — the stray sign-off it marked unsupported is exactly what it then
+    // cited as grounds to block.
+    const claimsJustifyBlock = claims.some((c) => c.status === "contradicted");
+    let verdict = computed.verdict;
+
+    if (object.verdict === "block") {
+      verdict = claimsJustifyBlock ? "block" : "review";
+      if (!claimsJustifyBlock) {
+        log.warn("Grounding judge blocked without a supporting claim; routed to review instead", {
+          reasoning: object.reasoning,
+          claims: claims.map((c) => c.status),
+        });
+      }
     }
 
     const report: GroundingReport = {
       ...object,
+      claims,
+      unsupportedClaims: object.unsupportedClaims.filter((c) => !isNonClaim(c)),
       score: computed.score,
-      // A `block` from the judge is a safety escalation ("this would mislead"),
-      // so it is honoured even when the claim statuses do not force it. The
-      // reverse — a silent downgrade to `review` — is not.
-      verdict: object.verdict === "block" ? "block" : computed.verdict,
+      verdict,
     };
 
     // Citations are required but absent: cap the score regardless of the judge's

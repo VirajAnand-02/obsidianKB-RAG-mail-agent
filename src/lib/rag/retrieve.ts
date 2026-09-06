@@ -50,7 +50,11 @@ export async function expandQuery(question: string, count: number): Promise<stri
     const { text } = await generateText({
       model,
       prompt: promptText,
-      temperature: 0.3,
+      // Deterministic: the same email must expand to the same queries every
+      // time. At 0.3 a compound question drew a different set of variants on
+      // each run, so whether a sub-question was retrieved at all came down to
+      // the sample — and a failure could not be reproduced from the trace.
+      temperature: 0,
       maxOutputTokens: 400,
     });
 
@@ -117,8 +121,27 @@ function toRetrieved(hit: RawHit): RetrievedChunk {
  * A chunk that ranks moderately for several phrasings of the question is a
  * better bet than one that ranks first for a single phrasing, and RRF captures
  * that without needing the variants' scores to be comparable.
+ *
+ * That preference has a sharp edge on compound questions. With `rrfK` at 60 the
+ * per-list contributions are nearly flat — rank 1 scores 1/61, rank 10 scores
+ * 1/71 — so a chunk sitting at rank 10 in four lists outscores the chunk that
+ * ranked *first* in one of them by more than three times. Ask "how do I contact
+ * you, and is there a rate limit?" and the contact notes place in every list
+ * while the one rate-limit note places in one; RRF then fills all `topK` slots
+ * with contact material and the rate-limit note never reaches the model, which
+ * answers that half honestly with "not in the notes".
+ *
+ * `reserveTopPerQuery` prevents that: whatever each variant ranked first is
+ * promoted to the front, in variant order, before the RRF ordering continues.
+ * When the variants agree the promoted set collapses to one chunk and nothing
+ * changes; it only spends slots when the variants genuinely disagree, which is
+ * exactly the compound case.
  */
-function fuseAcrossQueries(lists: RetrievedChunk[][], rrfK: number): RetrievedChunk[] {
+function fuseAcrossQueries(
+  lists: RetrievedChunk[][],
+  rrfK: number,
+  reserveTopPerQuery = 1,
+): RetrievedChunk[] {
   const byId = new Map<string, RetrievedChunk>();
   const fused = new Map<string, number>();
 
@@ -132,9 +155,30 @@ function fuseAcrossQueries(lists: RetrievedChunk[][], rrfK: number): RetrievedCh
     });
   }
 
-  return [...fused.entries()]
+  const ranked = [...fused.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([id, score]) => ({ ...byId.get(id)!, score }));
+
+  if (reserveTopPerQuery <= 0) return ranked;
+
+  // Round-robin over the lists so the first variant's best hit leads, then the
+  // second's, and so on — one pass per reserved rank.
+  const reserved: string[] = [];
+  const seen = new Set<string>();
+  for (let rank = 0; rank < reserveTopPerQuery; rank++) {
+    for (const list of lists) {
+      const chunk = list[rank];
+      if (chunk && !seen.has(chunk.chunkId)) {
+        seen.add(chunk.chunkId);
+        reserved.push(chunk.chunkId);
+      }
+    }
+  }
+
+  const byRank = new Map(ranked.map((c) => [c.chunkId, c]));
+  const promoted = reserved.map((id) => byRank.get(id)).filter((c): c is RetrievedChunk => !!c);
+  const rest = ranked.filter((c) => !seen.has(c.chunkId));
+  return [...promoted, ...rest];
 }
 
 // ---------------------------------------------------------------------------

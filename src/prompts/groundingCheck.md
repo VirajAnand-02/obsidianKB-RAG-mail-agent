@@ -2,7 +2,7 @@
 id: grounding-check
 name: Grounding Check
 description: Verifies a drafted reply is fully supported by retrieved context before it is allowed to send.
-version: 4
+version: 5
 variables:
   - question
   - draft
@@ -56,6 +56,8 @@ For compound statements, verify each material fact separately. Pay particular at
 * future outcomes
 * statements about what happened, exists, was decided, or will happen
 
+Treat a statement about what the excerpts themselves do or do not contain — "the notes don't mention X", "I couldn't find anything about X" — as a **coverage statement**, not an ordinary factual claim. It is verified against the excerpts rather than against the world; see "Coverage statements" below.
+
 Ignore:
 
 * greetings
@@ -64,6 +66,12 @@ Ignore:
 * transitions
 * offers to help further
 * harmless statements about the assistant itself that make no claim about the knowledge base or the subject matter
+
+These are not claims. Leave them out of `claims` entirely — not as `supported`, and above all not as `unsupported`.
+
+A sentence is a claim only if it asserts something checkable against the excerpts: a fact about the subject matter, or a statement about what the notes contain. "Let me know if you'd like help with anything else" and "Hope that helps" assert nothing checkable. Listing such a line as `unsupported` blocks an otherwise correct reply over a closing pleasantry, which is a fault in the check, not a defect in the draft.
+
+If you are unsure whether a fragment is a claim, ask what excerpt could possibly confirm or refute it. If the question does not make sense, it is not a claim.
 
 ### 2. Find supporting evidence
 
@@ -97,7 +105,28 @@ Use exactly one of these statuses:
 * `unsupported` — no retrieved excerpt establishes the claim.
 * `contradicted` — a retrieved excerpt explicitly or clearly says otherwise.
 
-### 4. Watch for unsupported inference
+### 4. Coverage statements
+
+A coverage statement asserts that the retrieved excerpts do not cover something. Unlike a factual claim, it is always decidable: read the excerpts and see.
+
+Classify it as:
+
+* `supported` — no excerpt establishes the topic the draft says is missing. This is the normal case and it is correct behaviour by the draft: declining to answer from nothing is exactly what should happen.
+* `contradicted` — an excerpt *does* establish it, so the draft is wrongly denying material it was given.
+
+Never mark a coverage statement `unsupported` or `partial`. "The notes don't mention X" does not need an excerpt saying "X is not mentioned"; the absence of X in the excerpts is the evidence, and requiring positive evidence for an absence would penalise every honest non-answer.
+
+A hedge attached to the same statement — "so I can't confirm the exact figure", "so I'd rather not guess" — belongs to the coverage statement. Do not split it out as a separate speculative claim.
+
+This applies to drafts that answer part of a question and disclaim the rest. A reply that answers two of three asks from the excerpts and correctly says the third is not covered contains no unsupported claim, and must not be scored as though it does.
+
+What is still penalised is speculation that goes *beyond* the absence:
+
+> "I couldn't find that, so it was probably never decided."
+
+The second half is an ordinary factual claim and is `unsupported`.
+
+### 5. Watch for unsupported inference
 
 Do not consider the following supported unless the excerpts establish them:
 
@@ -200,6 +229,8 @@ The second statement remains unsupported unless the excerpts establish it.
 
 A draft that correctly says the vault does not contain the answer and claims nothing further scores `1.0`.
 
+The same holds for a *partial* non-answer. When a question has several parts and the excerpts cover only some, the correct draft answers what is covered and says plainly that the rest is not. Score it on its ordinary factual claims alone; the coverage statement is `supported` and neither caps the score nor forces a block.
+
 ## Scoring
 
 First calculate:
@@ -243,6 +274,7 @@ A correct "the vault does not contain the answer" response may also receive `pas
 
 Use `review` when:
 
+* A claim is `unsupported` while the rest of the draft holds up. An unsupported claim is not fatal on its own — it caps the score, which keeps the draft out of the auto-send path and puts it in front of a human.
 * Citation coverage is incomplete but the underlying claims are supported.
 * The evidence is ambiguous enough that a human should verify it.
 * The draft is grounded but does not fully address the original question.
@@ -253,13 +285,14 @@ Use `review` when:
 Use `block` when:
 
 * Any claim is `contradicted`.
-* Any material claim is `unsupported`.
 * A citation points to a nonexistent excerpt ID.
 * The draft contains fabricated details.
 * The draft makes substantial unsupported extrapolations.
 * Sending the draft could materially mislead the recipient.
 
-Prefer `block` for factual unreliability. Prefer `review` for uncertainty, incompleteness, or minor citation issues.
+Prefer `block` for factual unreliability — the draft says something the excerpts deny. Prefer `review` for uncertainty, incompleteness, a single unsupported line, or minor citation issues.
+
+Do not reach for `block` because the draft leaves part of the question unanswered. An incomplete but accurate reply is `review` at worst.
 
 ## Hallucination risk
 
@@ -328,6 +361,3 @@ Additional output rules:
 <context>
 {{context}}
 </context>
-```
-
-This keeps your **exact original output contract**: `score`, `verdict`, `claims`, `unsupportedClaims`, `hallucinationRisk`, `missingCitations`, and `reasoning`—no new keys. It also keeps the same three inputs: `question`, `draft`, and `context`.
